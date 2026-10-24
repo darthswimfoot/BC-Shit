@@ -66,10 +66,13 @@
     // The renderer may build paths from DynamicGroupName, asset group,
     // or inventory paths depending on the drawing context. The unique asset
     // name is the stable part across those variants.
-    if (path.includes(itemName)) {
+    // URL builders in the game and cache may normalize asset-name casing.
+    // Compare case-insensitively so the first uncached request is redirected too.
+    const lowerPath = path.toLowerCase();
+    if (lowerPath.includes(itemName.toLowerCase())) {
       return sourceTexture;
     }
-    if (path.includes(backItemName)) {
+    if (lowerPath.includes(backItemName.toLowerCase())) {
       return alignedBackTexture;
     }
     return url;
