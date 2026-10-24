@@ -1,15 +1,19 @@
 
 (() => {
     const group = AssetGroup[10];
+    const assets = group.Asset || [];
 
     const output = JSON.stringify({
-        group: {
-            Name: group.Name,
-            Description: group.Description,
-            keys: Object.keys(group),
-        },
-        AssetLoad: AssetLoad.toString().slice(0, 500),
-        AssetGet: AssetGet.toString().slice(0, 500),
+        groupName: group.Name,
+        assetCount: assets.length,
+        firstAssets: assets.slice(0, 5).map(a => ({
+            Name: a.Name,
+            keys: Object.keys(a),
+            LayerCount: a.Layer?.length,
+            FirstLayer: a.Layer?.[0],
+            FirstColors: a.Color,
+            DefaultColor: a.DefaultColor,
+        })),
     }, null, 2);
 
     const box = document.createElement("textarea");
