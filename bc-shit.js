@@ -41,18 +41,15 @@
   const mapImageUrl = url => {
     if (typeof url !== "string") return url;
     const path = url.split("?")[0];
-    if (path.endsWith("/HairFront/" + itemName + ".png") ||
-        path.endsWith("/HairFront/Preview/" + itemName + ".png") ||
-        path.endsWith("/Inventory/HairFront/" + itemName + ".png") ||
-        ["Small", "Normal", "Large", "XLarge"].some(size =>
-          path.endsWith("/HairFront/" + itemName + "_" + size + ".png"))) {
+    // Match every image variant the game may request (preview, inventory,
+    // size, and layer textures), not just the few known suffixes. A first-time
+    // asset render can request a different variant than later cached renders.
+    if (path.includes("/HairFront/" + itemName) ||
+        path.includes("/Inventory/HairFront/" + itemName)) {
       return sourceTexture;
     }
-    if (path.endsWith("/HairBack/" + backItemName + ".png") ||
-        path.endsWith("/HairBack/Preview/" + backItemName + ".png") ||
-        path.endsWith("/Inventory/HairBack/" + backItemName + ".png") ||
-        ["Small", "Normal", "Large", "XLarge", "Main", "Bands", "Tips"].some(suffix =>
-          path.endsWith("/HairBack/" + backItemName + "_" + suffix + ".png"))) {
+    if (path.includes("/HairBack/" + backItemName) ||
+        path.includes("/Inventory/HairBack/" + backItemName)) {
       return alignedBackTexture;
     }
     return url;
