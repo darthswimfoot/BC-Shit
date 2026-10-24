@@ -183,7 +183,7 @@
         if (!npc || index === 0) continue;
         const buttonX = x + (index - offset) * 470 + 345;
         // Match the game's built-in Dress / Change Appearance icon button.
-        window.DrawButton(buttonX, 25, 90, 90, "", "White", "Icons/Dress.png", window.TextGet("Dress"));
+        window.DrawButton(buttonX, 25, 63, 63, "", "White", "Icons/Dress.png", window.TextGet("Dress"));
       }
       return result;
     };
@@ -191,7 +191,7 @@
     window.PrivateClick = function (...args) {
       if (
         window.LogQuery("RentRoom", "PrivateRoom") &&
-        window.MouseY >= 25 && window.MouseY < 115 &&
+        window.MouseY >= 25 && window.MouseY < 88 &&
         Array.isArray(window.PrivateCharacter)
       ) {
         const offset = Number(window.PrivateCharacterOffset) || 0;
@@ -201,7 +201,7 @@
         for (let index = offset; index < window.PrivateCharacter.length && index < offset + 4; index++) {
           if (index === 0 || !window.PrivateCharacter[index]) continue;
           const buttonX = x + (index - offset) * 470 + 345;
-          if (window.MouseX >= buttonX && window.MouseX < buttonX + 90) {
+          if (window.MouseX >= buttonX && window.MouseX < buttonX + 63) {
             const npc = window.PrivateCharacter[index];
             // This is the same save path used by the built-in "Custom" clothes dialogue.
             window.PrivateCharacterNewClothes = npc;
