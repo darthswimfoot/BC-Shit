@@ -54,6 +54,28 @@
     }
     return url;
   };
+  // Preload/decode both source textures before the custom assets can be
+  // selected. This avoids the first equip racing the browser's initial image
+  // decode; keep the game's normal cache API and URLs intact.
+  async function preloadTexture(url) {
+    const image = new Image();
+    image.src = url;
+    if (typeof image.decode === "function") {
+      await image.decode();
+    } else {
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = () => reject(new Error("Texture failed to load: " + url));
+      });
+    }
+    return image;
+  }
+  try {
+    await Promise.all([preloadTexture(sourceTexture), preloadTexture(alignedBackTexture)]);
+  } catch (error) {
+    console.warn("BC-Shit: texture preload did not complete; continuing with normal cache loading:", error);
+  }
+
   const restores = [];
   for (const cache of [window.DrawImageCache, window.GLDrawImageCache]) {
     if (!cache || typeof cache.get !== "function") continue;
