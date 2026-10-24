@@ -51,7 +51,11 @@
       window.AssetAdd(group, { ...base, Name: itemName, Description: "Togruta Small" }, window.AssetFemale3DCGExtended, groupDef);
     }
     if (!window.AssetGet("Female3DCG", "HairBack", backItemName)) {
-      window.AssetAdd(backGroup, { ...backBase, Name: backItemName, Description: "Togruta Small", DescriptionPlural: "Togruta Small", Priority: 999999, LayerPriority: 999999 }, window.AssetFemale3DCGExtended, backGroupDef);
+      const backAssetData = { ...backBase, Name: backItemName, Description: "Togruta Small", DescriptionPlural: "Togruta Small", Priority: 999999, LayerPriority: 999999 };
+      // Layer must remain the array schema expected by R133 appearance sorting and coloring.
+      if (Array.isArray(backBase.Layer)) backAssetData.Layer = backBase.Layer.map(layer => layer && typeof layer === "object" ? { ...layer } : layer);
+      else backAssetData.Layer = [];
+      window.AssetAdd(backGroup, backAssetData, window.AssetFemale3DCGExtended, backGroupDef);
     }
   } catch (error) {
     restores.reverse().forEach(restore => restore());
@@ -73,6 +77,12 @@
     registeredTogrutaBackAsset.DescriptionPlural = "Togruta Small";
     registeredTogrutaBackAsset.Priority = 999999;
     registeredTogrutaBackAsset.LayerPriority = 999999;
+    // Repair stale registrations left by earlier bookmarklet versions.
+    if (!Array.isArray(registeredTogrutaBackAsset.Layer)) {
+      registeredTogrutaBackAsset.Layer = Array.isArray(backBase.Layer)
+        ? backBase.Layer.map(layer => layer && typeof layer === "object" ? { ...layer } : layer)
+        : [];
+    }
     registeredTogrutaBackAsset.Layer = "OverAll";
   }
 
