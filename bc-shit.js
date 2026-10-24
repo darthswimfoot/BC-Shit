@@ -1,43 +1,31 @@
-
 (() => {
-    let output;
+    const assets = AssetGroup[10].Asset;
 
-    try {
-        const assets = AssetGroup[10].Asset;
-
-        output = JSON.stringify(
-            assets.slice(0, 3).map((asset, index) => ({
-                index,
-                type: typeof asset,
-                value: asset,
-                keys: asset && typeof asset === "object"
-                    ? Object.keys(asset)
-                    : [],
-            })),
-            (key, value) => {
-                if (typeof value === "function") return "[function]";
-                if (value instanceof Map) return "[Map]";
-                return value;
-            },
-            2
-        );
-    } catch (e) {
-        output = "ERROR: " + (e.stack || e.message || String(e));
-    }
+    const result = assets.slice(0, 3).map((a, i) => ({
+        index: i,
+        type: typeof a,
+        name: a?.Name ?? null,
+        groupName: a?.Group?.Name ?? null,
+        keys: a && typeof a === "object"
+            ? Object.keys(a)
+            : [],
+        layers: Array.isArray(a?.Layer)
+            ? a.Layer.map(l => ({
+                name: l?.Name ?? null,
+                keys: l && typeof l === "object"
+                    ? Object.keys(l)
+                    : []
+            }))
+            : null
+    }));
 
     const box = document.createElement("textarea");
-    box.value = output;
+    box.value = JSON.stringify(result, null, 2);
     box.style.cssText =
         "position:fixed;top:5%;left:5%;width:90%;height:85%;" +
-        "z-index:2147483647;background:white;color:black;" +
-        "font-size:14px;padding:10px;";
+        "z-index:2147483647;background:white;color:black;font-size:14px;";
     document.body.appendChild(box);
     box.focus();
     box.select();
-
-    try {
-        document.execCommand("copy");
-    } catch {}
-
-    alert("Diagnostic ready. If needed, click the text and press Ctrl+A, then Ctrl+C.");
+    alert("Click the text box, press Ctrl+A, then Ctrl+C, and paste the output here.");
 })();
