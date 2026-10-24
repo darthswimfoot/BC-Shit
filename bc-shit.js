@@ -85,10 +85,29 @@
     }
     return url;
   };
-  // R133 has TWO ImageCache instances: DrawImageCache holds decoded
-  // ImageBitmaps, while GLDrawImageCache is the cache used by the WebGL
-  // renderer. Hook both; patching only DrawImageCache leaves the first GL
-  // texture request asynchronous, which explains why a second selection works.
+  // Resolve R133 caches whether the game exposes them as window properties
+  // or as top-level lexical bindings.
+  const getGameCache = name => {
+    if (name === "DrawImageCache") {
+      if (window.DrawImageCache) return window.DrawImageCache;
+      try { if (typeof DrawImageCache !== "undefined") return DrawImageCache; } catch {}
+    }
+    if (name === "GLDrawImageCache") {
+      if (window.GLDrawImageCache) return window.GLDrawImageCache;
+      try { if (typeof GLDrawImageCache !== "undefined") return GLDrawImageCache; } catch {}
+    }
+    return null;
+  };
+  // R133 has separate decoded-image and WebGL texture caches. Wait for them
+  // to exist before hooking; the game can initialize these after script tags.
+  async function waitForGameCaches() {
+    const started = Date.now();
+    while (Date.now() - started < 12000) {
+      if (getGameCache("DrawImageCache") || getGameCache("GLDrawImageCache")) break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  await waitForGameCaches();
   if (!window.__bcShitTogrutaCacheGetInstalled) {
     const pendingTextureEntries = new WeakSet();
     const redrawAfterTextureReady = (entry, url) => {
@@ -99,7 +118,7 @@
       const started = Date.now();
       const check = () => {
         if (typeof entry.isLoaded === "function" && entry.isLoaded() && entry.data) {
-          console.info("[BC-Shit Togruta] texture became ready; refreshing character", url);
+          console.log("[BC-Shit Togruta] texture ready; refreshing character", url);
           try {
             if (window.Player) window.Player.MustDraw = true;
             if (typeof window.CharacterLoadCanvasAll === "function") window.CharacterLoadCanvasAll();
@@ -120,28 +139,45 @@
     };
     const hookedCaches = [];
     for (const cacheName of ["DrawImageCache", "GLDrawImageCache"]) {
-      const cache = window[cacheName];
-      if (!cache || typeof cache.get !== "function") continue;
+      const cache = getGameCache(cacheName);
+      if (!cache || typeof cache.get !== "function") {
+        console.warn("[BC-Shit Togruta] cache unavailable; could not hook " + cacheName, {
+          windowProperty: !!window[cacheName],
+          getType: typeof cache?.get
+        });
+        continue;
+      }
       const originalCacheGet = cache.get;
       cache.get = function (url, ...args) {
         const mappedUrl = mapImageUrl(url);
         const entry = originalCacheGet.call(this, mappedUrl, ...args);
         if (mappedUrl !== url) {
-          console.info("[BC-Shit Togruta] redirected " + cacheName + " request", { requested: url, mapped: mappedUrl });
+          console.log("[BC-Shit Togruta] redirected " + cacheName, { requested: url, mapped: mappedUrl });
           redrawAfterTextureReady(entry, mappedUrl);
         }
         return entry;
       };
-      hookedCaches.push({ cache, originalCacheGet });
+      hookedCaches.push({ cache, originalCacheGet, cacheName });
+      console.log("[BC-Shit Togruta] hooked " + cacheName);
     }
     let originalGlLoadImage = null;
     if (typeof window.GLDrawLoadImage === "function") {
       originalGlLoadImage = window.GLDrawLoadImage;
       window.GLDrawLoadImage = function (gl, url, ...args) {
-        return originalGlLoadImage.call(this, gl, mapImageUrl(url), ...args);
+        const mappedUrl = mapImageUrl(url);
+        if (mappedUrl !== url) console.log("[BC-Shit Togruta] redirected GLDrawLoadImage", { requested: url, mapped: mappedUrl });
+        return originalGlLoadImage.call(this, gl, mappedUrl, ...args);
       };
+      console.log("[BC-Shit Togruta] hooked GLDrawLoadImage");
+    } else {
+      console.warn("[BC-Shit Togruta] GLDrawLoadImage not exposed on window");
     }
     window.__bcShitTogrutaCacheGetInstalled = true;
+    console.log("[BC-Shit Togruta] cache-hook summary", {
+      hooked: hookedCaches.map(item => item.cacheName),
+      drawImageCacheType: typeof getGameCache("DrawImageCache")?.get,
+      glDrawImageCacheType: typeof getGameCache("GLDrawImageCache")?.get
+    });
     restores.push(() => {
       for (const item of hookedCaches) item.cache.get = item.originalCacheGet;
       if (originalGlLoadImage) window.GLDrawLoadImage = originalGlLoadImage;
@@ -171,8 +207,8 @@
   // decoded-image cache alone does not warm GLDrawImageCache, which can cause
   // the first selection to render without the texture.
   async function preloadGameCache(cacheName, url) {
-    const cache = window[cacheName];
-    if (!cache || typeof cache.get !== "function") return;
+    const cache = getGameCache(cacheName);
+    if (!cache || typeof cache.get !== "function") { console.warn("[BC-Shit Togruta] preload skipped: cache unavailable", cacheName); return; }
     let entry;
     try {
       entry = cache.get(url);
@@ -180,7 +216,7 @@
       console.warn("BC-Shit: could not start " + cacheName + " preload:", url, error);
       return;
     }
-    if (!entry || typeof entry.isDoneLoading !== "function") return;
+    if (!entry || typeof entry.isDoneLoading !== "function") { console.warn("[BC-Shit Togruta] preload skipped: unexpected cache entry", cacheName, url, entry); return; }
     const started = Date.now();
     while (!entry.isDoneLoading() && Date.now() - started < 15000) {
       if (entry.state === "error" || entry.state === "failed" || entry.isFailing?.()) {
@@ -202,13 +238,16 @@
   // Let R133's native ImageCache own decoding and cache state. Do not insert
   // HTMLImageElement objects into its caches: DrawImageCache expects decoded
   // ImageBitmaps, while GLDrawImageCache stores GL texture data.
-  console.debug("[BC-Shit Togruta] startup diagnostics", {
-    drawImageCachePresent: !!window.DrawImageCache,
-    drawImageCacheGetPresent: typeof window.DrawImageCache?.get === "function",
+  console.log("[BC-Shit Togruta] startup diagnostics", {
+    drawImageCacheWindow: !!window.DrawImageCache,
+    drawImageCacheResolved: !!getGameCache("DrawImageCache"),
+    drawImageCacheGet: typeof getGameCache("DrawImageCache")?.get,
+    glDrawImageCacheWindow: !!window.GLDrawImageCache,
+    glDrawImageCacheResolved: !!getGameCache("GLDrawImageCache"),
+    glDrawImageCacheGet: typeof getGameCache("GLDrawImageCache")?.get,
+    glDrawLoadImageWindow: typeof window.GLDrawLoadImage,
     frontTemplate: base?.Name,
-    frontTemplateLayers: Array.isArray(base?.Layer) ? base.Layer.map(layer => layer?.Name ?? null) : null,
-    backTemplate: backBase?.Name,
-    backTemplateLayers: Array.isArray(backBase?.Layer) ? backBase.Layer.map(layer => layer?.Name ?? null) : null
+    backTemplate: backBase?.Name
   });
   await Promise.all([
     preloadGameCache("DrawImageCache", sourceTexture),
