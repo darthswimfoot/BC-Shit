@@ -28,6 +28,7 @@
     alert("BC-Shit is already installed for this game session.");
     return;
   }
+  const restores = [];
   const groupDef = window.AssetFemale3DCG?.find(g => g.Group === "HairFront");
   const group = window.AssetGroupGet?.("Female3DCG", "HairFront");
   // Most standard hair assets are listed as strings in the raw group
@@ -73,27 +74,38 @@
     }
     return url;
   };
-  // The asset definition makes R133 request its normal in-game asset URL,
-  // but the actual PNGs live in this mod's repository. mapImageUrl was previously
-  // defined but never connected to the game's loader, so neither texture URL was
-  // ever redirected. Intercept fetch, which R133's ImageCache uses to obtain PNGs.
+  // R133's renderer asks DrawImageCache for decoded image data. Redirect its
+  // cache lookup itself, because a fetch-only hook can miss the cache's internal
+  // loading path or an already-created cache entry.
+  const drawImageCache = window.DrawImageCache;
+  if (drawImageCache && typeof drawImageCache.get === "function" && !window.__bcShitTogrutaCacheGetInstalled) {
+    const originalCacheGet = drawImageCache.get;
+    drawImageCache.get = function (url, ...args) {
+      return originalCacheGet.call(this, mapImageUrl(url), ...args);
+    };
+    window.__bcShitTogrutaCacheGetInstalled = true;
+    restores.push(() => {
+      drawImageCache.get = originalCacheGet;
+      delete window.__bcShitTogrutaCacheGetInstalled;
+    });
+  }
+
+  // Keep a fetch redirect as a fallback for other code paths which load an
+  // asset directly instead of consulting DrawImageCache.
   if (!window.__bcShitTogrutaFetchInstalled) {
-    const originalFetch = window.fetch.bind(window);
+    const originalFetch = window.fetch;
     window.fetch = function (input, init) {
       const requestUrl = typeof input === "string" ? input
         : input && typeof input.url === "string" ? input.url : "";
       const mappedUrl = mapImageUrl(requestUrl);
-      if (mappedUrl !== requestUrl) {
-        return originalFetch(mappedUrl, init);
-      }
-      return originalFetch(input, init);
+      if (mappedUrl !== requestUrl) return originalFetch.call(this, mappedUrl, init);
+      return originalFetch.call(this, input, init);
     };
     window.__bcShitTogrutaFetchInstalled = true;
-    window.__restoreBCShitTogrutaFetch = () => {
+    restores.push(() => {
       window.fetch = originalFetch;
       delete window.__bcShitTogrutaFetchInstalled;
-      delete window.__restoreBCShitTogrutaFetch;
-    };
+    });
   }
 
   // R133 ImageCache.get() starts loading an unknown URL but does not return
