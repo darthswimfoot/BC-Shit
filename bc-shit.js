@@ -8,9 +8,9 @@
   }
   const groupDef = window.AssetFemale3DCG?.find(g => g.Group === "HairFront");
   const group = window.AssetGroupGet?.("Female3DCG", "HairFront");
-  const base = groupDef?.Asset?.find(a => a.Name === "FrontHair1");
+  const base = groupDef?.Asset?.find(a => a.Name === "HairFront1") || groupDef?.Asset?.find(a => a.Name === "FrontHair1") || groupDef?.Asset?.[0];
   if (!groupDef || !group || !base) {
-    alert("Togruta head-tails: FrontHair1 was not found in HairFront.");
+    alert("Togruta head-tails: no usable hairstyle template was found in HairFront.");
     return;
   }
   const mapImageUrl = url => {
