@@ -2,28 +2,18 @@
     const a = AssetGroup[10].Asset[0];
     const l = a.Layer[0];
 
-    const simple = o => {
-        const out = {};
-        for (const k of Object.keys(o || {})) {
-            const v = o[k];
-            if (v === null || ["string", "number", "boolean"].includes(typeof v))
-                out[k] = v;
-            else if (Array.isArray(v))
-                out[k] = `[array: ${v.length}]`;
-            else if (typeof v === "object")
-                out[k] = `[object: ${Object.keys(v).slice(0, 12).join(", ")}]`;
-            else if (typeof v === "function")
-                out[k] = "[function]";
-        }
-        return out;
-    };
-
     const result = {
-        assetName: a.Name,
-        layer: simple(l),
-        layerAsset: simple(l.Asset),
-        layerAssetKeys: Object.keys(l.Asset || {}),
-        extended: simple(a.Extended)
+        itemName: a.Name,
+        group: a.Group?.Name,
+        family: a.Group?.Family,
+        layerName: l.Name,
+        layerAssetName: l.Asset?.Name,
+        layerAssetGroup: l.Asset?.Group?.Name,
+        layerAssetFamily: l.Asset?.Group?.Family,
+        textureRelatedFunctions: Object.keys(window).filter(
+            k => /image|texture|asset.*path|path.*asset/i.test(k)
+                && typeof window[k] === "function"
+        ).slice(0, 50)
     };
 
     const box = document.createElement("textarea");
