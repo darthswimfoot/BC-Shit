@@ -5,7 +5,7 @@
   const sourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallfront.png";
   const backSourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallback.png";
   // Keep the original 300x500 canvas dimensions so the game's sprite anchor
-  // stays unchanged. Shift the pixels left by 50px within that same canvas.
+  // stays unchanged. Shift the pixels left by 100px within that same canvas.
   let alignedBackTexture = backSourceTexture;
   try {
     const response = await fetch(backSourceTexture);
@@ -17,7 +17,7 @@
       canvas.height = 500;
       const context = canvas.getContext("2d");
       context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(bitmap, -50, 0);
+      context.drawImage(bitmap, -100, 0);
       alignedBackTexture = canvas.toDataURL("image/png");
     }
     bitmap.close?.();
