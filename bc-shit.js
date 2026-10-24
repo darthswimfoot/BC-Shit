@@ -30,10 +30,28 @@
   }
   const groupDef = window.AssetFemale3DCG?.find(g => g.Group === "HairFront");
   const group = window.AssetGroupGet?.("Female3DCG", "HairFront");
-  const base = groupDef?.Asset?.find(a => a.Name === "HairFront1") || groupDef?.Asset?.find(a => a.Name === "FrontHair1") || groupDef?.Asset?.[0];
+  // Most standard hair assets are listed as strings in the raw group
+  // definition. Only some specialized assets are objects with Name/Layer.
+  // Normalize string entries to a minimal definition instead of spreading
+  // a string into numeric character properties.
+  const frontEntry = groupDef?.Asset?.find(a =>
+    (typeof a === "string" && a === "HairFront1") ||
+    (a && typeof a === "object" && a.Name === "HairFront1")
+  ) || groupDef?.Asset?.find(a =>
+    (typeof a === "string" && a === "FrontHair1") ||
+    (a && typeof a === "object" && a.Name === "FrontHair1")
+  ) || groupDef?.Asset?.[0];
+  const base = typeof frontEntry === "string" ? { Name: frontEntry } : frontEntry;
   const backGroupDef = window.AssetFemale3DCG?.find(g => g.Group === "HairBack");
   const backGroup = window.AssetGroupGet?.("Female3DCG", "HairBack");
-  const backBase = backGroupDef?.Asset?.find(a => a.Name === "HairBack1" && Array.isArray(a.Layer)) || backGroupDef?.Asset?.find(a => Array.isArray(a.Layer)) || groupDef?.Asset?.find(a => Array.isArray(a.Layer));
+  // HairBack1 is also a valid base when it has no explicit Layer array:
+  // AssetAdd/AssetBuildLayer supplies the engine's normal single layer.
+  // Avoid borrowing a different hairstyle's multi-layer setup.
+  const backEntry = backGroupDef?.Asset?.find(a =>
+    (typeof a === "string" && a === "HairBack1") ||
+    (a && typeof a === "object" && a.Name === "HairBack1")
+  ) || backGroupDef?.Asset?.find(a => typeof a === "string") || backGroupDef?.Asset?.[0];
+  const backBase = typeof backEntry === "string" ? { Name: backEntry } : backEntry;
   if (!groupDef || !group || !base || !backGroupDef || !backGroup || !backBase) {
     alert("Togruta head-tails: no usable HairFront or HairBack template was found.");
     return;
@@ -182,9 +200,10 @@
     }
     if (!window.AssetGet("Female3DCG", "HairBack", backItemName)) {
       const backAssetData = { ...backBase, Name: backItemName, Description: "Togruta Small", DescriptionPlural: "Togruta Small", Priority: 999999, LayerPriority: 999999 };
-      // Layer must remain the array schema expected by R133 appearance sorting and coloring.
+      // Preserve an explicit layer definition when the chosen asset has one.
+      // If HairBack1 has no Layer array, let R133 create its standard single layer.
       if (Array.isArray(backBase.Layer)) backAssetData.Layer = backBase.Layer.map(layer => layer && typeof layer === "object" ? { ...layer } : layer);
-      else throw new Error("No template with a valid Layer array was found.");
+      else delete backAssetData.Layer;
       window.AssetAdd(backGroup, backAssetData, window.AssetFemale3DCGExtended, backGroupDef);
     }
   } catch (error) {
@@ -211,7 +230,7 @@
     if (!Array.isArray(registeredTogrutaBackAsset.Layer)) {
       registeredTogrutaBackAsset.Layer = Array.isArray(backBase.Layer)
         ? backBase.Layer.map(layer => layer && typeof layer === "object" ? { ...layer } : layer)
-        : [];
+        : [{ Name: null, Asset: registeredTogrutaBackAsset }];
     }
     // The broken asset may already be present in a character appearance entry.
     // Repair those item-level Asset references too, without changing its group or name.
