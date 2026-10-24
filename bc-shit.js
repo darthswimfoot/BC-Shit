@@ -1,50 +1,30 @@
 (() => {
   "use strict";
-
-  const itemName = "EchoChinesePanties";
-  const sourcePrefix =
-    "https://raw.githubusercontent.com/SugarChain-Studio/echo-clothing-ext/main/resources/Assets/Female3DCG/Panties/ChinesePanties1_";
-
-  if (window.__echoChinesePantiesInstalled) {
-    alert("Echo Chinese Panties is already installed for this game session.");
+  const itemName = "TogrutaHeadTailsSmallFront";
+  const sourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallfront.png";
+  if (window.__bcShitHeadTailsInstalled) {
+    alert("BC-Shit is already installed for this game session.");
     return;
   }
-
-  const groupDef = AssetFemale3DCG.find(g => g.Group === "Panties");
-  const group = AssetGroupGet("Female3DCG", "Panties");
-  const base = groupDef?.Asset.find(a => a.Name === "Panties1");
-
+  const groupDef = window.AssetFemale3DCG?.find(g => g.Group === "HairFront");
+  const group = window.AssetGroupGet?.("Female3DCG", "HairFront");
+  const base = groupDef?.Asset?.find(a => a.Name === "FrontHair1");
   if (!groupDef || !group || !base) {
-    alert("Echo Chinese Panties: could not find the game's base panties asset.");
+    alert("Togruta head-tails: FrontHair1 was not found in HairFront.");
     return;
   }
-
-  if (AssetGet("Female3DCG", "Panties", itemName)) {
-    alert("Echo Chinese Panties is already registered. Reload the game if it is missing.");
-    return;
-  }
-
   const mapImageUrl = url => {
     if (typeof url !== "string") return url;
-
-    // Use the corresponding source texture for the item's normal draw layers.
-    const sizeMatch = url.match(
-      /Assets\/Female3DCG\/Panties\/EchoChinesePanties_(Small|Normal|Large|XLarge)\.png$/
-    );
-    if (sizeMatch) return sourcePrefix + sizeMatch[1] + ".png";
-
-    // The Echo repository has no dedicated preview/inventory thumbnail.
-    // Reuse the Large clothing texture for those image requests.
-    if (
-      /Assets\/Female3DCG\/Panties\/Preview\/EchoChinesePanties\.png$/.test(url) ||
-      /Screens\/Inventory\/Panties\/EchoChinesePanties\.png$/.test(url)
-    ) {
-      return sourcePrefix + "Large.png";
+    const path = url.split("?")[0];
+    if (path.endsWith("/HairFront/" + itemName + ".png") ||
+        path.endsWith("/HairFront/Preview/" + itemName + ".png") ||
+        path.endsWith("/Inventory/HairFront/" + itemName + ".png") ||
+        ["Small", "Normal", "Large", "XLarge"].some(size =>
+          path.endsWith("/HairFront/" + itemName + "_" + size + ".png"))) {
+      return sourceTexture;
     }
-
     return url;
   };
-
   const restores = [];
   for (const cache of [window.DrawImageCache, window.GLDrawImageCache]) {
     if (!cache || typeof cache.get !== "function") continue;
@@ -54,18 +34,14 @@
     };
     restores.push(() => { cache.get = originalGet; });
   }
-
   try {
-    AssetAdd(
-      group,
-      { ...base, Name: itemName },
-      AssetFemale3DCGExtended,
-      groupDef
-    );
+    if (!window.AssetGet("Female3DCG", "HairFront", itemName)) {
+      window.AssetAdd(group, { ...base, Name: itemName }, window.AssetFemale3DCGExtended, groupDef);
+    }
   } catch (error) {
     restores.reverse().forEach(restore => restore());
-    console.error("Echo Chinese Panties registration failed:", error);
-    alert("Echo Chinese Panties could not be registered. See the browser console for details.");
+    console.error("Togruta head-tails registration failed:", error);
+    alert("Could not register Togruta head-tails. Check the browser console.");
     return;
   }
 
@@ -224,24 +200,13 @@
     npcDressButtonInstalled = true;
   }
 
-  window.__echoChinesePantiesInstalled = true;
-  window.__restoreEchoChinesePanties = () => {
+  window.__bcShitHeadTailsInstalled = true;
+  window.__restoreBCShitHeadTails = () => {
     restores.reverse().forEach(restore => restore());
-    delete window.__echoChinesePantiesInstalled;
-    delete window.__restoreEchoChinesePanties;
-    console.log("Echo Chinese Panties image redirects removed. Reload the game to remove the item.");
+    delete window.__bcShitHeadTailsInstalled;
+    delete window.__restoreBCShitHeadTails;
+    console.log("Togruta texture redirects removed. Reload to unregister the asset.");
   };
-
-  console.log("Echo Chinese Panties registered. Reload the game to remove it.");
-  alert(
-    "Echo Chinese Panties has been added to the panties inventory. " +
-    "Its preview reuses the Large clothing image. Find EchoChinesePanties and equip it. " +
-    (npcDressButtonInstalled
-      ? "Private Room NPC Dress buttons installed; use them to open the NPC clothing editor."
-      : "Private Room NPC Dress buttons were not installed because the required game functions were unavailable.") + " " +
-    (bodyEditHookInstalled
-      ? "Experimental NPC body-editing hook installed; test on a disposable NPC first."
-      : "NPC body-editing hook was not installed because AppearanceLoad was not available.") +
-    " Reload the game to undo the changes."
-  );
+  console.log("Togruta head-tails registered in HairFront.");
+  alert("Togruta head-tails added to Front Hair as " + itemName + ". Reload the game to undo the changes.");
 })();
