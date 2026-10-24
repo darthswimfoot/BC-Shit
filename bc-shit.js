@@ -13,7 +13,7 @@
   const base = groupDef?.Asset?.find(a => a.Name === "HairFront1") || groupDef?.Asset?.find(a => a.Name === "FrontHair1") || groupDef?.Asset?.[0];
   const backGroupDef = window.AssetFemale3DCG?.find(g => g.Group === "HairBack");
   const backGroup = window.AssetGroupGet?.("Female3DCG", "HairBack");
-  const backBase = backGroupDef?.Asset?.find(a => a.Name === "HairBack1") || backGroupDef?.Asset?.[0];
+  const backBase = backGroupDef?.Asset?.find(a => a.Name === "HairBack1" && Array.isArray(a.Layer)) || backGroupDef?.Asset?.find(a => Array.isArray(a.Layer)) || groupDef?.Asset?.find(a => Array.isArray(a.Layer));
   if (!groupDef || !group || !base || !backGroupDef || !backGroup || !backBase) {
     alert("Togruta head-tails: no usable HairFront or HairBack template was found.");
     return;
@@ -54,7 +54,7 @@
       const backAssetData = { ...backBase, Name: backItemName, Description: "Togruta Small", DescriptionPlural: "Togruta Small", Priority: 999999, LayerPriority: 999999 };
       // Layer must remain the array schema expected by R133 appearance sorting and coloring.
       if (Array.isArray(backBase.Layer)) backAssetData.Layer = backBase.Layer.map(layer => layer && typeof layer === "object" ? { ...layer } : layer);
-      else backAssetData.Layer = [];
+      else throw new Error("No template with a valid Layer array was found.");
       window.AssetAdd(backGroup, backAssetData, window.AssetFemale3DCGExtended, backGroupDef);
     }
   } catch (error) {
@@ -82,6 +82,16 @@
       registeredTogrutaBackAsset.Layer = Array.isArray(backBase.Layer)
         ? backBase.Layer.map(layer => layer && typeof layer === "object" ? { ...layer } : layer)
         : [];
+    }
+    // The broken asset may already be present in a character appearance entry.
+    // Repair those item-level Asset references too, without changing its group or name.
+    for (const character of [window.Player, ...(Array.isArray(window.Character) ? window.Character : [])]) {
+      if (!character || !Array.isArray(character.Appearance)) continue;
+      for (const item of character.Appearance) {
+        if (item && item.Asset && item.Asset.Name === backItemName && !Array.isArray(item.Asset.Layer)) {
+          item.Asset.Layer = registeredTogrutaBackAsset.Layer.map(layer => layer && typeof layer === "object" ? { ...layer } : layer);
+        }
+      }
     }
     registeredTogrutaBackAsset.Layer = "OverAll";
   }
