@@ -154,7 +154,15 @@
   }
   // Seed only after URL redirection is installed, using the exact URLs
   // that redirected game-cache lookups will request.
-  for (const [url, image] of decodedTextures) seedDecodedDrawImage(url, image);
+  for (const [url, image] of decodedTextures) {
+    seedDecodedDrawImage(url, image);
+    // GLDrawImageCache stores HTMLImageElements directly; the WebGL renderer
+    // reads this cache separately from DrawImageCache.
+    if (window.GLDrawImageCache && typeof window.GLDrawImageCache.set === "function" &&
+        image && image.complete && image.naturalWidth) {
+      window.GLDrawImageCache.set(url, image);
+    }
+  }
   await Promise.all([preloadGameCache(sourceTexture), preloadGameCache(alignedBackTexture)]);
 
   try {
