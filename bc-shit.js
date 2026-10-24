@@ -1,8 +1,6 @@
 (() => {
     alert(
-        "Asset: " + typeof Asset +
-        "\nAssetGroup: " + typeof AssetGroup +
-        "\nAssetLoad: " + typeof AssetLoad +
-        "\nAssetGet: " + typeof AssetGet
+        "AssetLoad:\n" + AssetLoad.toString().slice(0, 1200) +
+        "\n\nAssetGet:\n" + AssetGet.toString().slice(0, 1200)
     );
 })();
