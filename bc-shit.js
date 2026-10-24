@@ -1,7 +1,9 @@
 (() => {
   "use strict";
   const itemName = "TogrutaHeadTailsSmallFront";
+  const backItemName = "TogrutaHeadTailsSmallBack";
   const sourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallfront.png";
+  const backSourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallback.png";
   if (window.__bcShitHeadTailsInstalled) {
     alert("BC-Shit is already installed for this game session.");
     return;
@@ -9,8 +11,11 @@
   const groupDef = window.AssetFemale3DCG?.find(g => g.Group === "HairFront");
   const group = window.AssetGroupGet?.("Female3DCG", "HairFront");
   const base = groupDef?.Asset?.find(a => a.Name === "HairFront1") || groupDef?.Asset?.find(a => a.Name === "FrontHair1") || groupDef?.Asset?.[0];
-  if (!groupDef || !group || !base) {
-    alert("Togruta head-tails: no usable hairstyle template was found in HairFront.");
+  const backGroupDef = window.AssetFemale3DCG?.find(g => g.Group === "HairBack");
+  const backGroup = window.AssetGroupGet?.("Female3DCG", "HairBack");
+  const backBase = backGroupDef?.Asset?.find(a => a.Name === "HairBack1") || backGroupDef?.Asset?.[0];
+  if (!groupDef || !group || !base || !backGroupDef || !backGroup || !backBase) {
+    alert("Togruta head-tails: no usable HairFront or HairBack template was found.");
     return;
   }
   const mapImageUrl = url => {
@@ -22,6 +27,13 @@
         ["Small", "Normal", "Large", "XLarge"].some(size =>
           path.endsWith("/HairFront/" + itemName + "_" + size + ".png"))) {
       return sourceTexture;
+    }
+    if (path.endsWith("/HairBack/" + backItemName + ".png") ||
+        path.endsWith("/HairBack/Preview/" + backItemName + ".png") ||
+        path.endsWith("/Inventory/HairBack/" + backItemName + ".png") ||
+        ["Small", "Normal", "Large", "XLarge"].some(size =>
+          path.endsWith("/HairBack/" + backItemName + "_" + size + ".png"))) {
+      return backSourceTexture;
     }
     return url;
   };
@@ -38,6 +50,9 @@
     if (!window.AssetGet("Female3DCG", "HairFront", itemName)) {
       window.AssetAdd(group, { ...base, Name: itemName, Description: "Togruta Small" }, window.AssetFemale3DCGExtended, groupDef);
     }
+    if (!window.AssetGet("Female3DCG", "HairBack", backItemName)) {
+      window.AssetAdd(backGroup, { ...backBase, Name: backItemName, Description: "Togruta Small — Back", DescriptionPlural: "Togruta Small — Back", Priority: 999999, LayerPriority: 999999, Layer: "OverAll" }, window.AssetFemale3DCGExtended, backGroupDef);
+    }
   } catch (error) {
     restores.reverse().forEach(restore => restore());
     console.error("Togruta head-tails registration failed:", error);
@@ -52,6 +67,14 @@
     registeredTogrutaAsset.Description = "Togruta Small";
     registeredTogrutaAsset.DescriptionPlural = "Togruta Small";
   }
+  const registeredTogrutaBackAsset = window.AssetGet("Female3DCG", "HairBack", backItemName);
+  if (registeredTogrutaBackAsset) {
+    registeredTogrutaBackAsset.Description = "Togruta Small — Back";
+    registeredTogrutaBackAsset.DescriptionPlural = "Togruta Small — Back";
+    registeredTogrutaBackAsset.Priority = 999999;
+    registeredTogrutaBackAsset.LayerPriority = 999999;
+    registeredTogrutaBackAsset.Layer = "OverAll";
+  }
 
   if (!window.__bcShitTogrutaNameInstalled) {
     if (typeof window.AssetDescription === "function") {
@@ -59,6 +82,7 @@
       window.AssetDescription = function (...args) {
         if (args.some(arg => arg && typeof arg === "object" &&
             (arg.Name === itemName || arg === registeredTogrutaAsset))) return "Togruta Small";
+        if (args.some(arg => arg && typeof arg === "object" && (arg.Name === backItemName || arg === registeredTogrutaBackAsset))) return "Togruta Small — Back";
         return originalAssetDescription.apply(this, args);
       };
     }
@@ -68,12 +92,16 @@
         if (typeof key === "string" &&
             (key.includes(itemName) || key === "HairFront" + itemName ||
              key === "AssetHairFront" + itemName)) return "Togruta Small";
+        if (typeof key === "string" && (key.includes(backItemName) || key === "HairBack" + backItemName || key === "AssetHairBack" + backItemName)) return "Togruta Small — Back";
         return originalTextGet.call(this, key, ...args);
       };
     }
     window.__bcShitTogrutaNameInstalled = true;
   }
 
+  // Request foreground ordering for the custom back lekku where supported by the game renderer.
+  // HairBack assets normally draw behind other groups; these metadata values signal highest priority to compatible renderers.
+  // A full renderer override is deliberately avoided so normal character rendering stays stable.
   // Experimental NPC body-customization hook:
   // AppearanceLoad filters the editor list by AllowCustomize, while group
   // permissions also depend on Clothing. Temporarily enable both flags for
@@ -236,6 +264,6 @@
     delete window.__restoreBCShitHeadTails;
     console.log("Togruta texture redirects removed. Reload to unregister the asset.");
   };
-  console.log("Togruta head-tails registered in HairFront.");
-  alert("Togruta head-tails added to Front Hair as " + itemName + ". Reload the game to undo the changes.");
+  console.log("Togruta head-tails registered in HairFront and HairBack.");
+  alert("Togruta Small front and back head-tails added. Reload the game to undo the changes.");
 })();
