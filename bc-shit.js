@@ -4,9 +4,8 @@
   const backItemName = "TogrutaHeadTailsSmallBack";
   const sourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallfront.png";
   const backSourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallback.png";
-  // The back sprite is 300x500, while its visible content is centered in the
-  // middle 200px. Crop 50px from each side to align its canvas with the game's
-  // expected 200px-wide hair sprite origin.
+  // Keep the original 300x500 canvas dimensions so the game's sprite anchor
+  // stays unchanged. Shift the pixels left by 50px within that same canvas.
   let alignedBackTexture = backSourceTexture;
   try {
     const response = await fetch(backSourceTexture);
@@ -14,10 +13,11 @@
     const bitmap = await createImageBitmap(await response.blob());
     if (bitmap.width === 300 && bitmap.height === 500) {
       const canvas = document.createElement("canvas");
-      canvas.width = 200;
+      canvas.width = 300;
       canvas.height = 500;
       const context = canvas.getContext("2d");
-      context.drawImage(bitmap, 50, 0, 200, 500, 0, 0, 200, 500);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, -50, 0);
       alignedBackTexture = canvas.toDataURL("image/png");
     }
     bitmap.close?.();
