@@ -4,26 +4,9 @@
   const backItemName = "TogrutaHeadTailsSmallBack";
   const sourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallfront.png";
   const backSourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallback.png";
-  // Keep the original 300x500 canvas dimensions so the game's sprite anchor
-  // stays unchanged. Shift the pixels left by 100px within that same canvas.
-  let alignedBackTexture = backSourceTexture;
-  try {
-    const response = await fetch(backSourceTexture);
-    if (!response.ok) throw new Error("HTTP " + response.status);
-    const bitmap = await createImageBitmap(await response.blob());
-    if (bitmap.width === 300 && bitmap.height === 500) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 300;
-      canvas.height = 500;
-      const context = canvas.getContext("2d");
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(bitmap, -100, 0);
-      alignedBackTexture = canvas.toDataURL("image/png");
-    }
-    bitmap.close?.();
-  } catch (error) {
-    console.warn("BC-Shit: using original back texture because canvas alignment failed:", error);
-  }
+  // Use the source texture unchanged. Canvas-based shifts did not match the game's
+  // sprite anchor, so avoid altering pixel positions until the renderer offset is understood.
+  const alignedBackTexture = backSourceTexture;
   if (window.__bcShitHeadTailsInstalled) {
     alert("BC-Shit is already installed for this game session.");
     return;
