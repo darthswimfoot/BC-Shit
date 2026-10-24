@@ -31,8 +31,8 @@
     if (path.endsWith("/HairBack/" + backItemName + ".png") ||
         path.endsWith("/HairBack/Preview/" + backItemName + ".png") ||
         path.endsWith("/Inventory/HairBack/" + backItemName + ".png") ||
-        ["Small", "Normal", "Large", "XLarge"].some(size =>
-          path.endsWith("/HairBack/" + backItemName + "_" + size + ".png"))) {
+        ["Small", "Normal", "Large", "XLarge", "Main", "Bands", "Tips"].some(suffix =>
+          path.endsWith("/HairBack/" + backItemName + "_" + suffix + ".png"))) {
       return backSourceTexture;
     }
     return url;
