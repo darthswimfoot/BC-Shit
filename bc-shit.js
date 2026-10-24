@@ -3,29 +3,24 @@
     let output;
 
     try {
-        const group = AssetGroup[10];
-        const sample = group
-            ? Object.fromEntries(
-                Object.keys(group).map(key => {
-                    let value;
-                    try {
-                        value = group[key];
-                        if (typeof value === "function") {
-                            value = "[function]";
-                        } else if (value && typeof value === "object") {
-                            value = Array.isArray(value)
-                                ? `[array, length ${value.length}]`
-                                : "[object]";
-                        }
-                    } catch (e) {
-                        value = "[error reading property]";
-                    }
-                    return [key, value];
-                })
-            )
-            : "AssetGroup[10] is missing";
+        const assets = AssetGroup[10].Asset;
 
-        output = JSON.stringify(sample, null, 2);
+        output = JSON.stringify(
+            assets.slice(0, 3).map((asset, index) => ({
+                index,
+                type: typeof asset,
+                value: asset,
+                keys: asset && typeof asset === "object"
+                    ? Object.keys(asset)
+                    : [],
+            })),
+            (key, value) => {
+                if (typeof value === "function") return "[function]";
+                if (value instanceof Map) return "[Map]";
+                return value;
+            },
+            2
+        );
     } catch (e) {
         output = "ERROR: " + (e.stack || e.message || String(e));
     }
@@ -44,5 +39,5 @@
         document.execCommand("copy");
     } catch {}
 
-    alert("Diagnostic ready. If it wasn't copied automatically, press Ctrl+A, then Ctrl+C, and paste it here.");
+    alert("Diagnostic ready. If needed, click the text and press Ctrl+A, then Ctrl+C.");
 })();
