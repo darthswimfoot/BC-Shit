@@ -1,23 +1,31 @@
 (() => {
     const a = AssetGroup[10].Asset[0];
-    const l = a.Layer[0];
+    const results = {};
 
-    const result = {
-        itemName: a.Name,
-        group: a.Group?.Name,
-        family: a.Group?.Family,
-        layerName: l.Name,
-        layerAssetName: l.Asset?.Name,
-        layerAssetGroup: l.Asset?.Group?.Name,
-        layerAssetFamily: l.Asset?.Group?.Family,
-        textureRelatedFunctions: Object.keys(window).filter(
-            k => /image|texture|asset.*path|path.*asset/i.test(k)
-                && typeof window[k] === "function"
-        ).slice(0, 50)
-    };
+    for (const name of ["AssetGetPreviewPath", "AssetGetInventoryPath"]) {
+        try {
+            results[name] = {
+                signature: window[name].toString().slice(0, 1200)
+            };
+        } catch (e) {
+            results[name] = String(e);
+        }
+    }
+
+    try {
+        results.preview = AssetGetPreviewPath(a);
+    } catch (e) {
+        results.preview = "ERROR: " + e.message;
+    }
+
+    try {
+        results.inventory = AssetGetInventoryPath(a);
+    } catch (e) {
+        results.inventory = "ERROR: " + e.message;
+    }
 
     const box = document.createElement("textarea");
-    box.value = JSON.stringify(result, null, 2);
+    box.value = JSON.stringify(results, null, 2);
     box.style.cssText =
         "position:fixed;top:5%;left:5%;width:90%;height:85%;" +
         "z-index:2147483647;background:white;color:black;font-size:14px;";
