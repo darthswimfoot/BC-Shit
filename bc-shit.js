@@ -93,7 +93,7 @@
         }
       }
     }
-    registeredTogrutaBackAsset.Layer = "OverAll";
+    // Keep Layer as the structured array required by R133; never replace it with a string.
   }
 
   if (!window.__bcShitTogrutaNameInstalled) {
