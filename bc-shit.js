@@ -85,12 +85,11 @@
     }
     return url;
   };
-  // R133's renderer asks DrawImageCache for decoded image data. Redirect its
-  // cache lookup itself, because a fetch-only hook can miss the cache's internal
-  // loading path or an already-created cache entry.
-  const drawImageCache = window.DrawImageCache;
-  if (drawImageCache && typeof drawImageCache.get === "function" && !window.__bcShitTogrutaCacheGetInstalled) {
-    const originalCacheGet = drawImageCache.get;
+  // R133 has TWO ImageCache instances: DrawImageCache holds decoded
+  // ImageBitmaps, while GLDrawImageCache is the cache used by the WebGL
+  // renderer. Hook both; patching only DrawImageCache leaves the first GL
+  // texture request asynchronous, which explains why a second selection works.
+  if (!window.__bcShitTogrutaCacheGetInstalled) {
     const pendingTextureEntries = new WeakSet();
     const redrawAfterTextureReady = (entry, url) => {
       if (!entry || (typeof entry !== "object" && typeof entry !== "function") || pendingTextureEntries.has(entry)) return;
@@ -119,18 +118,33 @@
       };
       setTimeout(check, 50);
     };
-    drawImageCache.get = function (url, ...args) {
-      const mappedUrl = mapImageUrl(url);
-      const entry = originalCacheGet.call(this, mappedUrl, ...args);
-      if (mappedUrl !== url) {
-        console.info("[BC-Shit Togruta] redirected texture request", { requested: url, mapped: mappedUrl });
-        redrawAfterTextureReady(entry, mappedUrl);
-      }
-      return entry;
-    };
+    const hookedCaches = [];
+    for (const cacheName of ["DrawImageCache", "GLDrawImageCache"]) {
+      const cache = window[cacheName];
+      if (!cache || typeof cache.get !== "function") continue;
+      const originalCacheGet = cache.get;
+      cache.get = function (url, ...args) {
+        const mappedUrl = mapImageUrl(url);
+        const entry = originalCacheGet.call(this, mappedUrl, ...args);
+        if (mappedUrl !== url) {
+          console.info("[BC-Shit Togruta] redirected " + cacheName + " request", { requested: url, mapped: mappedUrl });
+          redrawAfterTextureReady(entry, mappedUrl);
+        }
+        return entry;
+      };
+      hookedCaches.push({ cache, originalCacheGet });
+    }
+    let originalGlLoadImage = null;
+    if (typeof window.GLDrawLoadImage === "function") {
+      originalGlLoadImage = window.GLDrawLoadImage;
+      window.GLDrawLoadImage = function (gl, url, ...args) {
+        return originalGlLoadImage.call(this, gl, mapImageUrl(url), ...args);
+      };
+    }
     window.__bcShitTogrutaCacheGetInstalled = true;
     restores.push(() => {
-      drawImageCache.get = originalCacheGet;
+      for (const item of hookedCaches) item.cache.get = item.originalCacheGet;
+      if (originalGlLoadImage) window.GLDrawLoadImage = originalGlLoadImage;
       delete window.__bcShitTogrutaCacheGetInstalled;
     });
   }
@@ -153,25 +167,24 @@
     });
   }
 
-  // R133 ImageCache.get() starts loading an unknown URL but does not return
-  // drawable pixels on that first call. Seed the game's own cache and wait for
-  // its CachedImage state to finish before registering/selecting the assets.
-  // Preloading with a separate HTMLImageElement alone does not warm this cache.
-  async function preloadGameCache(url) {
-    const cache = window.DrawImageCache;
+  // Preload BOTH R133 caches before making the assets selectable. The
+  // decoded-image cache alone does not warm GLDrawImageCache, which can cause
+  // the first selection to render without the texture.
+  async function preloadGameCache(cacheName, url) {
+    const cache = window[cacheName];
     if (!cache || typeof cache.get !== "function") return;
     let entry;
     try {
       entry = cache.get(url);
     } catch (error) {
-      console.warn("BC-Shit: could not start game-cache preload:", url, error);
+      console.warn("BC-Shit: could not start " + cacheName + " preload:", url, error);
       return;
     }
     if (!entry || typeof entry.isDoneLoading !== "function") return;
     const started = Date.now();
     while (!entry.isDoneLoading() && Date.now() - started < 15000) {
       if (entry.state === "error" || entry.state === "failed" || entry.isFailing?.()) {
-        console.warn("BC-Shit: game-cache preload failed:", url, entry.state);
+        console.warn("BC-Shit: " + cacheName + " preload failed:", url, entry.state);
         return;
       }
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -180,9 +193,12 @@
       } catch { /* retain the original entry while it finishes */ }
     }
     if (!entry.isDoneLoading() || !entry.data) {
-      console.warn("BC-Shit: game-cache preload timed out:", url, entry.state);
+      console.warn("BC-Shit: " + cacheName + " preload timed out or has no data:", url, entry.state);
+    } else {
+      console.info("[BC-Shit Togruta] preloaded " + cacheName, url);
     }
   }
+
   // Let R133's native ImageCache own decoding and cache state. Do not insert
   // HTMLImageElement objects into its caches: DrawImageCache expects decoded
   // ImageBitmaps, while GLDrawImageCache stores GL texture data.
@@ -194,7 +210,12 @@
     backTemplate: backBase?.Name,
     backTemplateLayers: Array.isArray(backBase?.Layer) ? backBase.Layer.map(layer => layer?.Name ?? null) : null
   });
-  await Promise.all([preloadGameCache(sourceTexture), preloadGameCache(alignedBackTexture)]);
+  await Promise.all([
+    preloadGameCache("DrawImageCache", sourceTexture),
+    preloadGameCache("DrawImageCache", alignedBackTexture),
+    preloadGameCache("GLDrawImageCache", sourceTexture),
+    preloadGameCache("GLDrawImageCache", alignedBackTexture)
+  ]);
 
   try {
     if (!window.AssetGet("Female3DCG", "HairFront", itemName)) {
