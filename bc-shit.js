@@ -70,10 +70,46 @@
     }
     return image;
   }
+  const decodedTextures = new Map();
   try {
-    await Promise.all([preloadTexture(sourceTexture), preloadTexture(alignedBackTexture)]);
+    const [frontImage, backImage] = await Promise.all([
+      preloadTexture(sourceTexture),
+      preloadTexture(alignedBackTexture)
+    ]);
+    decodedTextures.set(sourceTexture, frontImage);
+    decodedTextures.set(alignedBackTexture, backImage);
   } catch (error) {
     console.warn("BC-Shit: texture preload did not complete; continuing with normal cache loading:", error);
+  }
+
+  // R133 DrawImageCache stores CachedImage records, not HTMLImageElements.
+  // Seed those records with the decoded images before asset registration so
+  // the renderer can draw the custom textures immediately instead of caching
+  // an unresolved first request. Keep a fallback to the game's loader if its
+  // cache implementation is not the R133 ImageCache shape.
+  function seedDecodedDrawImage(url, image) {
+    const cache = window.DrawImageCache;
+    if (!cache || !cache.cache || typeof cache.cache.set !== "function" ||
+        typeof cache.get !== "function" || !image || !image.complete ||
+        !image.naturalWidth) return false;
+    const existing = cache.cache.get(url);
+    if (existing && typeof existing.unload === "function") {
+      try { existing.unload(); } catch { /* ignore stale cache entry */ }
+    }
+    const entry = {
+      cache, url, state: "loaded", data: image, lastUsed: Date.now(),
+      _generation: 0,
+      async _load() {},
+      unload() {},
+      _dispose() {},
+      isAsset() { return false; },
+      isLoaded() { return this.state === "loaded"; },
+      isLoading() { return this.state === "loading"; },
+      isDoneLoading() { return this.state === "loaded"; },
+      isFailing() { return false; }
+    };
+    cache.cache.set(url, entry);
+    return true;
   }
 
   const restores = [];
@@ -116,6 +152,9 @@
       console.warn("BC-Shit: game-cache preload timed out:", url, entry.state);
     }
   }
+  // Seed only after URL redirection is installed, using the exact URLs
+  // that redirected game-cache lookups will request.
+  for (const [url, image] of decodedTextures) seedDecodedDrawImage(url, image);
   await Promise.all([preloadGameCache(sourceTexture), preloadGameCache(alignedBackTexture)]);
 
   try {
