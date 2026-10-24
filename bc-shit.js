@@ -1,16 +1,20 @@
 
 (() => {
-    const groups = Object.keys(AssetGroup);
-    const matches = groups.filter(k =>
-        /pant|cloth|under|bra/i.test(k)
-    );
+    const matches = Array.from(AssetGroup)
+        .map((g, i) => ({
+            index: i,
+            name: g?.Name,
+            description: g?.Description,
+            category: g?.Category,
+        }))
+        .filter(g =>
+            /pant|under|cloth|lingerie|bra|bottom/i.test(
+                [g.name, g.description, g.category].join(" ")
+            )
+        );
 
-    const output = [
-        "AssetGroup type: " + typeof AssetGroup,
-        "Group count: " + groups.length,
-        "Matching keys: " + (matches.join(", ") || "none"),
-        "First 30 keys: " + groups.slice(0, 30).join(", "),
-    ].join("\n");
+    const output = JSON.stringify(matches, null, 2) ||
+        "No matching entries found.";
 
     const box = document.createElement("textarea");
     box.value = output;
