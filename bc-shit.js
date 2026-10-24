@@ -85,6 +85,39 @@
     };
     restores.push(() => { cache.get = originalGet; });
   }
+
+  // R133 ImageCache.get() starts loading an unknown URL but does not return
+  // drawable pixels on that first call. Seed the game's own cache and wait for
+  // its CachedImage state to finish before registering/selecting the assets.
+  // Preloading with a separate HTMLImageElement alone does not warm this cache.
+  async function preloadGameCache(url) {
+    const cache = window.DrawImageCache;
+    if (!cache || typeof cache.get !== "function") return;
+    let entry;
+    try {
+      entry = cache.get(url);
+    } catch (error) {
+      console.warn("BC-Shit: could not start game-cache preload:", url, error);
+      return;
+    }
+    if (!entry || typeof entry.isDoneLoading !== "function") return;
+    const started = Date.now();
+    while (!entry.isDoneLoading() && Date.now() - started < 15000) {
+      if (entry.state === "error" || entry.state === "failed" || entry.isFailing?.()) {
+        console.warn("BC-Shit: game-cache preload failed:", url, entry.state);
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+      try {
+        entry = cache.get(url) || entry;
+      } catch { /* retain the original entry while it finishes */ }
+    }
+    if (!entry.isDoneLoading() || !entry.data) {
+      console.warn("BC-Shit: game-cache preload timed out:", url, entry.state);
+    }
+  }
+  await Promise.all([preloadGameCache(sourceTexture), preloadGameCache(alignedBackTexture)]);
+
   try {
     if (!window.AssetGet("Female3DCG", "HairFront", itemName)) {
       window.AssetAdd(group, { ...base, Name: itemName, Description: "Togruta Small" }, window.AssetFemale3DCGExtended, groupDef);
