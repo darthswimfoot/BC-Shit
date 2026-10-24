@@ -128,6 +128,36 @@
     bodyEditHookInstalled = true;
   }
 
+  // NPC appearance groups are still rejected by WardrobeGroupAccessible
+  // after AppearanceLoad restores shared AssetGroup metadata. Override this
+  // runtime access check for the selected NPC, leaving player permissions intact.
+  let npcBodyAccessHookInstalled = false;
+  if (
+    typeof window.WardrobeGroupAccessible === "function" &&
+    !window.__bcShitNpcBodyAccessInstalled
+  ) {
+    const originalWardrobeGroupAccessible = window.WardrobeGroupAccessible;
+    window.WardrobeGroupAccessible = function (character, assetGroup, options) {
+      const target = window.CharacterAppearanceSelection;
+      if (
+        target &&
+        target.ID !== 0 &&
+        character === target &&
+        assetGroup &&
+        assetGroup.Category === "Appearance"
+      ) return true;
+      return originalWardrobeGroupAccessible.call(this, character, assetGroup, options);
+    };
+    window.__bcShitNpcBodyAccessInstalled = true;
+    window.__restoreBCShitNpcBodyAccess = () => {
+      window.WardrobeGroupAccessible = originalWardrobeGroupAccessible;
+      delete window.__bcShitNpcBodyAccessInstalled;
+      delete window.__restoreBCShitNpcBodyAccess;
+      console.log("NPC body-part access hook removed.");
+    };
+    npcBodyAccessHookInstalled = true;
+  }
+
   // Add a direct "Dress NPC" button to Private Room NPC cards.
   // Reuse the game's existing NPC custom-clothing save path.
   let npcDressButtonInstalled = false;
