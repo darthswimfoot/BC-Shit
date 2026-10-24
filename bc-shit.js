@@ -45,17 +45,25 @@
     return;
   }
 
-  // Keep the asset's internal ID stable for saved outfits and texture paths.
-  // Show a friendlier name wherever the game's asset-description helper is used.
-  if (typeof window.AssetDescription === "function" && !window.__bcShitTogrutaNameInstalled) {
-    const originalAssetDescription = window.AssetDescription;
-    window.AssetDescription = function (...args) {
-      if (args.some(arg => arg && typeof arg === "object" &&
-          arg.Name === itemName && arg.Group?.Name === "HairFront")) {
-        return "Togruta Small";
-      }
-      return originalAssetDescription.apply(this, args);
-    };
+  // Override the game's localized display-name lookup for this custom asset.
+  // Keep the internal ID stable so texture paths and saved outfits are unaffected.
+  if (!window.__bcShitTogrutaNameInstalled) {
+    if (typeof window.AssetDescription === "function") {
+      const originalAssetDescription = window.AssetDescription;
+      window.AssetDescription = function (...args) {
+        if (args.some(arg => arg && typeof arg === "object" && arg.Name === itemName)) {
+          return "Togruta Small";
+        }
+        return originalAssetDescription.apply(this, args);
+      };
+    }
+    if (typeof window.TextGet === "function") {
+      const originalTextGet = window.TextGet;
+      window.TextGet = function (key, ...args) {
+        if (typeof key === "string" && key.includes(itemName)) return "Togruta Small";
+        return originalTextGet.call(this, key, ...args);
+      };
+    }
     window.__bcShitTogrutaNameInstalled = true;
   }
 
