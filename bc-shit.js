@@ -1,1 +1,2 @@
-console.log("BC-Shit loaded!");
+console.log("BC-Shit: custom addon loaded!");
+alert("BC-Shit loaded successfully!");
