@@ -84,7 +84,15 @@
   if (drawImageCache && typeof drawImageCache.get === "function" && !window.__bcShitTogrutaCacheGetInstalled) {
     const originalCacheGet = drawImageCache.get;
     drawImageCache.get = function (url, ...args) {
-      return originalCacheGet.call(this, mapImageUrl(url), ...args);
+      const mappedUrl = mapImageUrl(url);
+      if (typeof url === "string" && /togruta|hairfront|hairback/i.test(url)) {
+        console.debug("[BC-Shit Togruta] DrawImageCache.get", {
+          requested: url,
+          mapped: mappedUrl,
+          redirected: mappedUrl !== url
+        });
+      }
+      return originalCacheGet.call(this, mappedUrl, ...args);
     };
     window.__bcShitTogrutaCacheGetInstalled = true;
     restores.push(() => {
@@ -144,6 +152,14 @@
   // Let R133's native ImageCache own decoding and cache state. Do not insert
   // HTMLImageElement objects into its caches: DrawImageCache expects decoded
   // ImageBitmaps, while GLDrawImageCache stores GL texture data.
+  console.debug("[BC-Shit Togruta] startup diagnostics", {
+    drawImageCachePresent: !!window.DrawImageCache,
+    drawImageCacheGetPresent: typeof window.DrawImageCache?.get === "function",
+    frontTemplate: base?.Name,
+    frontTemplateLayers: Array.isArray(base?.Layer) ? base.Layer.map(layer => layer?.Name ?? null) : null,
+    backTemplate: backBase?.Name,
+    backTemplateLayers: Array.isArray(backBase?.Layer) ? backBase.Layer.map(layer => layer?.Name ?? null) : null
+  });
   await Promise.all([preloadGameCache(sourceTexture), preloadGameCache(alignedBackTexture)]);
 
   try {
