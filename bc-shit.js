@@ -44,12 +44,13 @@
     // Match every image variant the game may request (preview, inventory,
     // size, and layer textures), not just the few known suffixes. A first-time
     // asset render can request a different variant than later cached renders.
-    if (path.includes("/HairFront/" + itemName) ||
-        path.includes("/Inventory/HairFront/" + itemName)) {
+    // The renderer may build paths from DynamicGroupName, asset group,
+    // or inventory paths depending on the drawing context. The unique asset
+    // name is the stable part across those variants.
+    if (path.includes(itemName)) {
       return sourceTexture;
     }
-    if (path.includes("/HairBack/" + backItemName) ||
-        path.includes("/Inventory/HairBack/" + backItemName)) {
+    if (path.includes(backItemName)) {
       return alignedBackTexture;
     }
     return url;
