@@ -113,16 +113,15 @@
   }
 
   const restores = [];
-  // GLDrawLoadImage owns the WebGL texture cache. Redirect its URL too, so
-  // the GPU texture and the image-cache lookup use the same custom texture
-  // key; redirecting only DrawImageCache/GLDrawImageCache leaves a blank
-  // texture cached under the original game asset URL on first selection.
-  if (typeof window.GLDrawLoadImage === "function") {
-    const originalGLDrawLoadImage = window.GLDrawLoadImage;
-    window.GLDrawLoadImage = function (gl, url, ...args) {
-      return originalGLDrawLoadImage.call(this, gl, mapImageUrl(url), ...args);
+  // Redirect at the public draw entry point before the renderer looks up
+  // or creates a WebGL texture. This avoids relying on reassignment of the
+  // game's internal GLDrawLoadImage binding through window.
+  if (typeof window.GLDrawImage === "function") {
+    const originalGLDrawImage = window.GLDrawImage;
+    window.GLDrawImage = function (url, ...args) {
+      return originalGLDrawImage.call(this, mapImageUrl(url), ...args);
     };
-    restores.push(() => { window.GLDrawLoadImage = originalGLDrawLoadImage; });
+    restores.push(() => { window.GLDrawImage = originalGLDrawImage; });
   }
   for (const cache of [window.DrawImageCache, window.GLDrawImageCache]) {
     if (!cache || typeof cache.get !== "function") continue;
