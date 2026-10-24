@@ -122,6 +122,72 @@
     bodyEditHookInstalled = true;
   }
 
+  // Add a direct "Dress NPC" button to Private Room NPC cards.
+  // Reuse the game's existing NPC custom-clothing save path.
+  let npcDressButtonInstalled = false;
+  if (
+    typeof window.PrivateDrawCharacter === "function" &&
+    typeof window.PrivateClick === "function" &&
+    typeof window.CharacterAppearanceLoadCharacter === "function" &&
+    !window.__bcShitNpcDressButtonInstalled
+  ) {
+    const originalPrivateDrawCharacter = window.PrivateDrawCharacter;
+    const originalPrivateClick = window.PrivateClick;
+
+    window.PrivateDrawCharacter = function (...args) {
+      const result = originalPrivateDrawCharacter.apply(this, args);
+      if (!Array.isArray(window.PrivateCharacter)) return result;
+
+      const offset = Number(window.PrivateCharacterOffset) || 0;
+      let x = 1000 - ((window.PrivateCharacter.length - offset) * 250);
+      if (x < 0) x = 0;
+
+      for (let index = offset; index < window.PrivateCharacter.length && index < offset + 4; index++) {
+        const npc = window.PrivateCharacter[index];
+        if (!npc || index === 0) continue;
+        const buttonX = x + (index - offset) * 470 + 345;
+        // Compact text button in the upper-right corner of each NPC's card.
+        window.DrawButton(buttonX, 25, 115, 60, "Dress NPC", "White", "");
+      }
+      return result;
+    };
+
+    window.PrivateClick = function (...args) {
+      if (
+        window.LogQuery("RentRoom", "PrivateRoom") &&
+        window.MouseY >= 25 && window.MouseY < 85 &&
+        Array.isArray(window.PrivateCharacter)
+      ) {
+        const offset = Number(window.PrivateCharacterOffset) || 0;
+        let x = 1000 - ((window.PrivateCharacter.length - offset) * 250);
+        if (x < 0) x = 0;
+
+        for (let index = offset; index < window.PrivateCharacter.length && index < offset + 4; index++) {
+          if (index === 0 || !window.PrivateCharacter[index]) continue;
+          const buttonX = x + (index - offset) * 470 + 345;
+          if (window.MouseX >= buttonX && window.MouseX < buttonX + 115) {
+            const npc = window.PrivateCharacter[index];
+            // This is the same save path used by the built-in "Custom" clothes dialogue.
+            window.PrivateCharacterNewClothes = npc;
+            window.CharacterAppearanceLoadCharacter(npc);
+            return;
+          }
+        }
+      }
+      return originalPrivateClick.apply(this, args);
+    };
+
+    window.__bcShitNpcDressButtonInstalled = true;
+    window.__restoreBCShitNpcDressButton = () => {
+      window.PrivateDrawCharacter = originalPrivateDrawCharacter;
+      window.PrivateClick = originalPrivateClick;
+      delete window.__bcShitNpcDressButtonInstalled;
+      delete window.__restoreBCShitNpcDressButton;
+      console.log("Private Room NPC dress buttons removed.");
+    };
+    npcDressButtonInstalled = true;
+  }
+
   window.__echoChinesePantiesInstalled = true;
   window.__restoreEchoChinesePanties = () => {
     restores.reverse().forEach(restore => restore());
@@ -134,6 +200,9 @@
   alert(
     "Echo Chinese Panties has been added to the panties inventory. " +
     "Its preview reuses the Large clothing image. Find EchoChinesePanties and equip it. " +
+    (npcDressButtonInstalled
+      ? "Private Room NPC Dress buttons installed; use them to open the NPC clothing editor."
+      : "Private Room NPC Dress buttons were not installed because the required game functions were unavailable.") + " " +
     (bodyEditHookInstalled
       ? "Experimental NPC body-editing hook installed; test on a disposable NPC first."
       : "NPC body-editing hook was not installed because AppearanceLoad was not available.") +
