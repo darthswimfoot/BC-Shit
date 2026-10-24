@@ -1,5 +1,6 @@
 (async () => {
   "use strict";
+  console.info("[BC-Shit] script execution started", location.href);
   const itemName = "TogrutaHeadTailsSmallFront";
   const backItemName = "TogrutaHeadTailsSmallBack";
   const sourceTexture = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@main/togrutaheadtailssmallfront.png";
@@ -8,7 +9,14 @@
   // sprite is 50px left of the game's expected HairBack origin.
   let alignedBackTexture = backSourceTexture;
   try {
-    const response = await fetch(backSourceTexture);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let response;
+    try {
+      response = await fetch(backSourceTexture, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!response.ok) throw new Error("HTTP " + response.status);
     const bitmap = await createImageBitmap(await response.blob());
     if (bitmap.width === 300 && bitmap.height === 500) {
