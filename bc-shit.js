@@ -45,22 +45,29 @@
     return;
   }
 
-  // Override the game's localized display-name lookup for this custom asset.
-  // Keep the internal ID stable so texture paths and saved outfits are unaffected.
+  // Set the registered asset's display description directly as well as
+  // intercepting the game's name helpers. The internal Name stays stable.
+  const registeredTogrutaAsset = window.AssetGet("Female3DCG", "HairFront", itemName);
+  if (registeredTogrutaAsset) {
+    registeredTogrutaAsset.Description = "Togruta Small";
+    registeredTogrutaAsset.DescriptionPlural = "Togruta Small";
+  }
+
   if (!window.__bcShitTogrutaNameInstalled) {
     if (typeof window.AssetDescription === "function") {
       const originalAssetDescription = window.AssetDescription;
       window.AssetDescription = function (...args) {
-        if (args.some(arg => arg && typeof arg === "object" && arg.Name === itemName)) {
-          return "Togruta Small";
-        }
+        if (args.some(arg => arg && typeof arg === "object" &&
+            (arg.Name === itemName || arg === registeredTogrutaAsset))) return "Togruta Small";
         return originalAssetDescription.apply(this, args);
       };
     }
     if (typeof window.TextGet === "function") {
       const originalTextGet = window.TextGet;
       window.TextGet = function (key, ...args) {
-        if (typeof key === "string" && key.includes(itemName)) return "Togruta Small";
+        if (typeof key === "string" &&
+            (key.includes(itemName) || key === "HairFront" + itemName ||
+             key === "AssetHairFront" + itemName)) return "Togruta Small";
         return originalTextGet.call(this, key, ...args);
       };
     }
