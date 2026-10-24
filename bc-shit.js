@@ -91,16 +91,42 @@
   const drawImageCache = window.DrawImageCache;
   if (drawImageCache && typeof drawImageCache.get === "function" && !window.__bcShitTogrutaCacheGetInstalled) {
     const originalCacheGet = drawImageCache.get;
+    const pendingTextureEntries = new WeakSet();
+    const redrawAfterTextureReady = (entry, url) => {
+      if (!entry || (typeof entry !== "object" && typeof entry !== "function") || pendingTextureEntries.has(entry)) return;
+      if (typeof entry.isLoaded === "function" && entry.isLoaded() && entry.data) return;
+      if (typeof entry.isDoneLoading !== "function") return;
+      pendingTextureEntries.add(entry);
+      const started = Date.now();
+      const check = () => {
+        if (typeof entry.isLoaded === "function" && entry.isLoaded() && entry.data) {
+          console.info("[BC-Shit Togruta] texture became ready; refreshing character", url);
+          try {
+            if (window.Player) window.Player.MustDraw = true;
+            if (typeof window.CharacterLoadCanvasAll === "function") window.CharacterLoadCanvasAll();
+          } catch (error) {
+            console.warn("[BC-Shit Togruta] character refresh after texture load failed", error);
+          }
+          return;
+        }
+        if (entry.isDoneLoading() || Date.now() - started >= 15000) {
+          console.warn("[BC-Shit Togruta] texture finished without drawable data or timed out", {
+            url, state: entry.state, hasData: !!entry.data
+          });
+          return;
+        }
+        setTimeout(check, 50);
+      };
+      setTimeout(check, 50);
+    };
     drawImageCache.get = function (url, ...args) {
       const mappedUrl = mapImageUrl(url);
-      if (typeof url === "string" && /togruta|hairfront|hairback/i.test(url)) {
-        console.debug("[BC-Shit Togruta] DrawImageCache.get", {
-          requested: url,
-          mapped: mappedUrl,
-          redirected: mappedUrl !== url
-        });
+      const entry = originalCacheGet.call(this, mappedUrl, ...args);
+      if (mappedUrl !== url) {
+        console.info("[BC-Shit Togruta] redirected texture request", { requested: url, mapped: mappedUrl });
+        redrawAfterTextureReady(entry, mappedUrl);
       }
-      return originalCacheGet.call(this, mappedUrl, ...args);
+      return entry;
     };
     window.__bcShitTogrutaCacheGetInstalled = true;
     restores.push(() => {
