@@ -70,10 +70,11 @@
   }
 
   // Experimental NPC body-customization hook:
-  // AppearanceAssetGroup caches CanChange during AppearanceLoad as
-  // (character is Player) || group.Clothing. Temporarily mark all appearance
-  // groups as clothing while an NPC's groups are built, then restore metadata.
-  // The cached permissions remain enabled for this editing session only.
+  // AppearanceLoad filters the editor list by AllowCustomize, while group
+  // permissions also depend on Clothing. Temporarily enable both flags for
+  // every appearance group of the selected NPC while the editor initializes.
+  // The editor keeps the resulting group list/permissions for this session;
+  // restore shared asset metadata immediately after initialization.
   let bodyEditHookInstalled = false;
   if (
     typeof window.AppearanceLoad === "function" &&
@@ -96,9 +97,12 @@
           changed.push({
             group: assetGroup,
             hadOwnClothing: Object.prototype.hasOwnProperty.call(assetGroup, "Clothing"),
-            clothing: assetGroup.Clothing
+            clothing: assetGroup.Clothing,
+            hadOwnAllowCustomize: Object.prototype.hasOwnProperty.call(assetGroup, "AllowCustomize"),
+            allowCustomize: assetGroup.AllowCustomize
           });
           assetGroup.Clothing = true;
+          assetGroup.AllowCustomize = true;
         }
       }
 
@@ -108,6 +112,8 @@
         for (const entry of changed) {
           if (entry.hadOwnClothing) entry.group.Clothing = entry.clothing;
           else delete entry.group.Clothing;
+          if (entry.hadOwnAllowCustomize) entry.group.AllowCustomize = entry.allowCustomize;
+          else delete entry.group.AllowCustomize;
         }
       }
     };
