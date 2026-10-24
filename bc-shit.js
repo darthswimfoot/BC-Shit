@@ -248,6 +248,18 @@
     window.__bcShitTogrutaNameInstalled = true;
   }
 
+  // Rebuild existing character canvases after the assets and texture redirects
+  // are registered. Newly added assets do not necessarily invalidate a canvas
+  // that was already built before the custom texture became available.
+  if (window.Player) window.Player.MustDraw = true;
+  if (typeof window.CharacterLoadCanvasAll === "function") {
+    try {
+      window.CharacterLoadCanvasAll();
+    } catch (error) {
+      console.warn("BC-Shit: immediate character canvas rebuild failed:", error);
+    }
+  }
+
   // Request foreground ordering for the custom back lekku where supported by the game renderer.
   // HairBack assets normally draw behind other groups; these metadata values signal highest priority to compatible renderers.
   // A full renderer override is deliberately avoided so normal character rendering stays stable.
