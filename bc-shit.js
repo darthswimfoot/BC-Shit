@@ -73,84 +73,6 @@
     }
     return url;
   };
-  // Preload/decode both source textures before the custom assets can be
-  // selected. This avoids the first equip racing the browser's initial image
-  // decode; keep the game's normal cache API and URLs intact.
-  async function preloadTexture(url) {
-    const image = new Image();
-    image.src = url;
-    if (typeof image.decode === "function") {
-      await image.decode();
-    } else {
-      await new Promise((resolve, reject) => {
-        image.onload = resolve;
-        image.onerror = () => reject(new Error("Texture failed to load: " + url));
-      });
-    }
-    return image;
-  }
-  const decodedTextures = new Map();
-  try {
-    const [frontImage, backImage] = await Promise.all([
-      preloadTexture(sourceTexture),
-      preloadTexture(alignedBackTexture)
-    ]);
-    decodedTextures.set(sourceTexture, frontImage);
-    decodedTextures.set(alignedBackTexture, backImage);
-  } catch (error) {
-    console.warn("BC-Shit: texture preload did not complete; continuing with normal cache loading:", error);
-  }
-
-  // R133 DrawImageCache stores CachedImage records, not HTMLImageElements.
-  // Seed those records with the decoded images before asset registration so
-  // the renderer can draw the custom textures immediately instead of caching
-  // an unresolved first request. Keep a fallback to the game's loader if its
-  // cache implementation is not the R133 ImageCache shape.
-  function seedDecodedDrawImage(url, image) {
-    const cache = window.DrawImageCache;
-    if (!cache || !cache.cache || typeof cache.cache.set !== "function" ||
-        typeof cache.get !== "function" || !image || !image.complete ||
-        !image.naturalWidth) return false;
-    const existing = cache.cache.get(url);
-    if (existing && typeof existing.unload === "function") {
-      try { existing.unload(); } catch { /* ignore stale cache entry */ }
-    }
-    const entry = {
-      cache, url, state: "loaded", data: image, lastUsed: Date.now(),
-      _generation: 0,
-      async _load() {},
-      unload() {},
-      _dispose() {},
-      isAsset() { return false; },
-      isLoaded() { return this.state === "loaded"; },
-      isLoading() { return this.state === "loading"; },
-      isDoneLoading() { return this.state === "loaded"; },
-      isFailing() { return false; }
-    };
-    cache.cache.set(url, entry);
-    return true;
-  }
-
-  const restores = [];
-  // Redirect at the public draw entry point before the renderer looks up
-  // or creates a WebGL texture. This avoids relying on reassignment of the
-  // game's internal GLDrawLoadImage binding through window.
-  if (typeof window.GLDrawImage === "function") {
-    const originalGLDrawImage = window.GLDrawImage;
-    window.GLDrawImage = function (url, ...args) {
-      return originalGLDrawImage.call(this, mapImageUrl(url), ...args);
-    };
-    restores.push(() => { window.GLDrawImage = originalGLDrawImage; });
-  }
-  for (const cache of [window.DrawImageCache, window.GLDrawImageCache]) {
-    if (!cache || typeof cache.get !== "function") continue;
-    const originalGet = cache.get;
-    cache.get = function (url, ...args) {
-      return originalGet.call(this, mapImageUrl(url), ...args);
-    };
-    restores.push(() => { cache.get = originalGet; });
-  }
-
   // R133 ImageCache.get() starts loading an unknown URL but does not return
   // drawable pixels on that first call. Seed the game's own cache and wait for
   // its CachedImage state to finish before registering/selecting the assets.
@@ -181,17 +103,9 @@
       console.warn("BC-Shit: game-cache preload timed out:", url, entry.state);
     }
   }
-  // Seed only after URL redirection is installed, using the exact URLs
-  // that redirected game-cache lookups will request.
-  for (const [url, image] of decodedTextures) {
-    seedDecodedDrawImage(url, image);
-    // GLDrawImageCache stores HTMLImageElements directly; the WebGL renderer
-    // reads this cache separately from DrawImageCache.
-    if (window.GLDrawImageCache && typeof window.GLDrawImageCache.set === "function" &&
-        image && image.complete && image.naturalWidth) {
-      window.GLDrawImageCache.set(url, image);
-    }
-  }
+  // Let R133's native ImageCache own decoding and cache state. Do not insert
+  // HTMLImageElement objects into its caches: DrawImageCache expects decoded
+  // ImageBitmaps, while GLDrawImageCache stores GL texture data.
   await Promise.all([preloadGameCache(sourceTexture), preloadGameCache(alignedBackTexture)]);
 
   try {
