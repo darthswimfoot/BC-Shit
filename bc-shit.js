@@ -2,8 +2,8 @@
   "use strict";
   const itemName = "TogrutaHeadTailsSmallFront";
   const backItemName = "TogrutaHeadTailsSmallBack";
-  const sourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallfront.png";
-  const backSourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallback.png";
+  const sourceTexture = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@main/togrutaheadtailssmallfront.png";
+  const backSourceTexture = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@main/togrutaheadtailssmallback.png";
   // Shift visible pixels 50px right inside the original canvas. The source
   // sprite is 50px left of the game's expected HairBack origin.
   let alignedBackTexture = backSourceTexture;
@@ -73,6 +73,29 @@
     }
     return url;
   };
+  // The asset definition makes R133 request its normal in-game asset URL,
+  // but the actual PNGs live in this mod's repository. mapImageUrl was previously
+  // defined but never connected to the game's loader, so neither texture URL was
+  // ever redirected. Intercept fetch, which R133's ImageCache uses to obtain PNGs.
+  if (!window.__bcShitTogrutaFetchInstalled) {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      const requestUrl = typeof input === "string" ? input
+        : input && typeof input.url === "string" ? input.url : "";
+      const mappedUrl = mapImageUrl(requestUrl);
+      if (mappedUrl !== requestUrl) {
+        return originalFetch(mappedUrl, init);
+      }
+      return originalFetch(input, init);
+    };
+    window.__bcShitTogrutaFetchInstalled = true;
+    window.__restoreBCShitTogrutaFetch = () => {
+      window.fetch = originalFetch;
+      delete window.__bcShitTogrutaFetchInstalled;
+      delete window.__restoreBCShitTogrutaFetch;
+    };
+  }
+
   // R133 ImageCache.get() starts loading an unknown URL but does not return
   // drawable pixels on that first call. Seed the game's own cache and wait for
   // its CachedImage state to finish before registering/selecting the assets.
