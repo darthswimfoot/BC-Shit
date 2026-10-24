@@ -4,7 +4,6 @@
   const itemName = "EchoChinesePanties";
   const sourcePrefix =
     "https://raw.githubusercontent.com/SugarChain-Studio/echo-clothing-ext/main/resources/Assets/Female3DCG/Panties/ChinesePanties1_";
-  const sizes = ["Small", "Normal", "Large", "XLarge"];
 
   if (window.__echoChinesePantiesInstalled) {
     alert("Echo Chinese Panties is already installed for this game session.");
@@ -27,10 +26,23 @@
 
   const mapImageUrl = url => {
     if (typeof url !== "string") return url;
-    const match = url.match(
+
+    // Use the corresponding source texture for the item's normal draw layers.
+    const sizeMatch = url.match(
       /Assets\/Female3DCG\/Panties\/EchoChinesePanties_(Small|Normal|Large|XLarge)\.png$/
     );
-    return match ? sourcePrefix + match[1] + ".png" : url;
+    if (sizeMatch) return sourcePrefix + sizeMatch[1] + ".png";
+
+    // The Echo repository has no dedicated preview/inventory thumbnail.
+    // Reuse the Large clothing texture for those image requests.
+    if (
+      /Assets\/Female3DCG\/Panties\/Preview\/EchoChinesePanties\.png$/.test(url) ||
+      /Screens\/Inventory\/Panties\/EchoChinesePanties\.png$/.test(url)
+    ) {
+      return sourcePrefix + "Large.png";
+    }
+
+    return url;
   };
 
   const restores = [];
@@ -68,6 +80,7 @@
   console.log("Echo Chinese Panties registered. Reload the game to remove it.");
   alert(
     "Echo Chinese Panties has been added to the panties inventory. " +
-    "Find EchoChinesePanties and equip it. Reload the game to undo the change."
+    "Its preview now reuses the Large clothing image. Find EchoChinesePanties and equip it. " +
+    "Reload the game to undo the change."
   );
 })();
