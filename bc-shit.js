@@ -1,9 +1,29 @@
-(() => {
+(async () => {
   "use strict";
   const itemName = "TogrutaHeadTailsSmallFront";
   const backItemName = "TogrutaHeadTailsSmallBack";
   const sourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallfront.png";
   const backSourceTexture = "https://raw.githubusercontent.com/darthswimfoot/BC-Shit/main/togrutaheadtailssmallback.png";
+  // The back sprite is 300x500, while its visible content is centered in the
+  // middle 200px. Crop 50px from each side to align its canvas with the game's
+  // expected 200px-wide hair sprite origin.
+  let alignedBackTexture = backSourceTexture;
+  try {
+    const response = await fetch(backSourceTexture);
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const bitmap = await createImageBitmap(await response.blob());
+    if (bitmap.width === 300 && bitmap.height === 500) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 200;
+      canvas.height = 500;
+      const context = canvas.getContext("2d");
+      context.drawImage(bitmap, 50, 0, 200, 500, 0, 0, 200, 500);
+      alignedBackTexture = canvas.toDataURL("image/png");
+    }
+    bitmap.close?.();
+  } catch (error) {
+    console.warn("BC-Shit: using original back texture because canvas alignment failed:", error);
+  }
   if (window.__bcShitHeadTailsInstalled) {
     alert("BC-Shit is already installed for this game session.");
     return;
@@ -33,7 +53,7 @@
         path.endsWith("/Inventory/HairBack/" + backItemName + ".png") ||
         ["Small", "Normal", "Large", "XLarge", "Main", "Bands", "Tips"].some(suffix =>
           path.endsWith("/HairBack/" + backItemName + "_" + suffix + ".png"))) {
-      return backSourceTexture;
+      return alignedBackTexture;
     }
     return url;
   };
