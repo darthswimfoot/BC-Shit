@@ -51,7 +51,7 @@
       window.AssetAdd(group, { ...base, Name: itemName, Description: "Togruta Small" }, window.AssetFemale3DCGExtended, groupDef);
     }
     if (!window.AssetGet("Female3DCG", "HairBack", backItemName)) {
-      window.AssetAdd(backGroup, { ...backBase, Name: backItemName, Description: "Togruta Small — Back", DescriptionPlural: "Togruta Small — Back", Priority: 999999, LayerPriority: 999999, Layer: "OverAll" }, window.AssetFemale3DCGExtended, backGroupDef);
+      window.AssetAdd(backGroup, { ...backBase, Name: backItemName, Description: "Togruta Small", DescriptionPlural: "Togruta Small", Priority: 999999, LayerPriority: 999999 }, window.AssetFemale3DCGExtended, backGroupDef);
     }
   } catch (error) {
     restores.reverse().forEach(restore => restore());
@@ -69,8 +69,8 @@
   }
   const registeredTogrutaBackAsset = window.AssetGet("Female3DCG", "HairBack", backItemName);
   if (registeredTogrutaBackAsset) {
-    registeredTogrutaBackAsset.Description = "Togruta Small — Back";
-    registeredTogrutaBackAsset.DescriptionPlural = "Togruta Small — Back";
+    registeredTogrutaBackAsset.Description = "Togruta Small";
+    registeredTogrutaBackAsset.DescriptionPlural = "Togruta Small";
     registeredTogrutaBackAsset.Priority = 999999;
     registeredTogrutaBackAsset.LayerPriority = 999999;
     registeredTogrutaBackAsset.Layer = "OverAll";
@@ -82,7 +82,7 @@
       window.AssetDescription = function (...args) {
         if (args.some(arg => arg && typeof arg === "object" &&
             (arg.Name === itemName || arg === registeredTogrutaAsset))) return "Togruta Small";
-        if (args.some(arg => arg && typeof arg === "object" && (arg.Name === backItemName || arg === registeredTogrutaBackAsset))) return "Togruta Small — Back";
+        if (args.some(arg => arg && typeof arg === "object" && (arg.Name === backItemName || arg === registeredTogrutaBackAsset))) return "Togruta Small";
         return originalAssetDescription.apply(this, args);
       };
     }
@@ -92,7 +92,7 @@
         if (typeof key === "string" &&
             (key.includes(itemName) || key === "HairFront" + itemName ||
              key === "AssetHairFront" + itemName)) return "Togruta Small";
-        if (typeof key === "string" && (key.includes(backItemName) || key === "HairBack" + backItemName || key === "AssetHairBack" + backItemName)) return "Togruta Small — Back";
+        if (typeof key === "string" && (key.includes(backItemName) || key === "HairBack" + backItemName || key === "AssetHairBack" + backItemName)) return "Togruta Small";
         return originalTextGet.call(this, key, ...args);
       };
     }
