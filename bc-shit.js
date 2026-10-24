@@ -69,6 +69,59 @@
     return;
   }
 
+  // Experimental NPC body-customization hook:
+  // AppearanceAssetGroup caches CanChange during AppearanceLoad as
+  // (character is Player) || group.Clothing. Temporarily mark all appearance
+  // groups as clothing while an NPC's groups are built, then restore metadata.
+  // The cached permissions remain enabled for this editing session only.
+  let bodyEditHookInstalled = false;
+  if (
+    typeof window.AppearanceLoad === "function" &&
+    !window.__bcShitNpcBodyEditInstalled
+  ) {
+    const originalAppearanceLoad = window.AppearanceLoad;
+    window.AppearanceLoad = function (...args) {
+      const target = window.CharacterAppearanceSelection || window.Player;
+      if (!target || target.ID === 0 || !Array.isArray(window.AssetGroup)) {
+        return originalAppearanceLoad.apply(this, args);
+      }
+
+      const changed = [];
+      for (const assetGroup of window.AssetGroup) {
+        if (
+          assetGroup &&
+          assetGroup.Family === target.AssetFamily &&
+          assetGroup.Category === "Appearance"
+        ) {
+          changed.push({
+            group: assetGroup,
+            hadOwnClothing: Object.prototype.hasOwnProperty.call(assetGroup, "Clothing"),
+            clothing: assetGroup.Clothing
+          });
+          assetGroup.Clothing = true;
+        }
+      }
+
+      try {
+        return originalAppearanceLoad.apply(this, args);
+      } finally {
+        for (const entry of changed) {
+          if (entry.hadOwnClothing) entry.group.Clothing = entry.clothing;
+          else delete entry.group.Clothing;
+        }
+      }
+    };
+
+    window.__bcShitNpcBodyEditInstalled = true;
+    window.__restoreBCShitNpcBodyEdit = () => {
+      window.AppearanceLoad = originalAppearanceLoad;
+      delete window.__bcShitNpcBodyEditInstalled;
+      delete window.__restoreBCShitNpcBodyEdit;
+      console.log("NPC body-customization hook removed. Reload the appearance screen to reset permissions.");
+    };
+    bodyEditHookInstalled = true;
+  }
+
   window.__echoChinesePantiesInstalled = true;
   window.__restoreEchoChinesePanties = () => {
     restores.reverse().forEach(restore => restore());
@@ -80,7 +133,10 @@
   console.log("Echo Chinese Panties registered. Reload the game to remove it.");
   alert(
     "Echo Chinese Panties has been added to the panties inventory. " +
-    "Its preview now reuses the Large clothing image. Find EchoChinesePanties and equip it. " +
-    "Reload the game to undo the change."
+    "Its preview reuses the Large clothing image. Find EchoChinesePanties and equip it. " +
+    (bodyEditHookInstalled
+      ? "Experimental NPC body-editing hook installed; test on a disposable NPC first."
+      : "NPC body-editing hook was not installed because AppearanceLoad was not available.") +
+    " Reload the game to undo the changes."
   );
 })();
