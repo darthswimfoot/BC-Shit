@@ -1,18 +1,17 @@
 
 (() => {
-    const group = AssetGroup.Panties;
+    const groups = Object.keys(AssetGroup);
+    const matches = groups.filter(k =>
+        /pant|cloth|under|bra/i.test(k)
+    );
 
     const output = [
-        "AssetLoad arguments: " + AssetLoad.length,
-        "AssetGet arguments: " + AssetGet.length,
-        "AssetGroup.Panties type: " + typeof group,
-        "Panties group name: " + (group?.Name ?? "not found"),
-        "Panties group keys: " + (
-            group ? Object.keys(group).join(", ") : "none"
-        ),
+        "AssetGroup type: " + typeof AssetGroup,
+        "Group count: " + groups.length,
+        "Matching keys: " + (matches.join(", ") || "none"),
+        "First 30 keys: " + groups.slice(0, 30).join(", "),
     ].join("\n");
 
-    // Show a selectable text box.
     const box = document.createElement("textarea");
     box.value = output;
     box.style.cssText =
@@ -23,14 +22,13 @@
     box.focus();
     box.select();
 
-    // Try to copy automatically.
     try {
-        if (document.execCommand("copy")) {
-            alert("Output copied! Paste it directly into ChatGPT.");
+        if (!document.execCommand("copy")) {
+            alert("Select the text and press Ctrl+C to copy.");
         } else {
-            alert("Output is selected. Press Ctrl+C, then paste it here.");
+            alert("Output copied. Paste it into ChatGPT.");
         }
     } catch {
-        alert("Output is selected. Press Ctrl+C, then paste it here.");
+        alert("Select the text and press Ctrl+C to copy.");
     }
 })();
