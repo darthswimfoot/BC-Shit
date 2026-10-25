@@ -322,6 +322,25 @@
     // into fully mapped runtime layers (Alpha, Priority, PoseMapping, etc.).
   }
 
+  // LayerNames.csv has no entries for mod-added layers. Populate the game's
+  // runtime layer-name map so the color picker displays the intended labels.
+  const setTogrutaLayerLabels = () => {
+    let names = window.ItemColorLayerNames;
+    if (!(names instanceof Map)) {
+      try { if (typeof ItemColorLayerNames !== "undefined") names = ItemColorLayerNames; } catch {}
+    }
+    if (!(names instanceof Map)) {
+      console.warn("[BC-Shit Togruta] ItemColorLayerNames map is not available yet");
+      return false;
+    }
+    names.set(itemName + "Main", "Main");
+    names.set(itemName + "Stripes", "Stripes");
+    names.set(backItemName + "Main", "Main");
+    names.set(backItemName + "Stripes", "Stripes");
+    return true;
+  };
+  setTogrutaLayerLabels();
+
   if (!window.__bcShitTogrutaNameInstalled) {
     if (typeof window.AssetDescription === "function") {
       const originalAssetDescription = window.AssetDescription;
