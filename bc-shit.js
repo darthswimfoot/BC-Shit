@@ -322,8 +322,8 @@
     // into fully mapped runtime layers (Alpha, Priority, PoseMapping, etc.).
   }
 
-  // Bondage Club recreates ItemColorLayerNames when the color menu opens.
-  // Keep watching for replacement caches and reapply labels after each rebuild.
+  // Return modded layer labels directly from TextCache.get so the first
+  // color-menu draw never briefly displays MISSING TEXT, even before CSV load.
   const togrutaLayerLabels = {
     [itemName + "Main"]: "Main",
     [itemName + "Stripes"]: "Stripes",
@@ -334,9 +334,30 @@
     ["HairBack" + backItemName + "Main"]: "Main",
     ["HairBack" + backItemName + "Stripes"]: "Stripes"
   };
+  const installTogrutaTextCacheHook = () => {
+    let cacheClass;
+    try {
+      if (typeof TextCache === "function") cacheClass = TextCache;
+    } catch {}
+    if (!cacheClass || !cacheClass.prototype || typeof cacheClass.prototype.get !== "function") {
+      return false;
+    }
+    if (cacheClass.prototype.__bcShitTogrutaLabels) return true;
+    const originalGet = cacheClass.prototype.get;
+    cacheClass.prototype.get = function (key, ...args) {
+      if (Object.prototype.hasOwnProperty.call(togrutaLayerLabels, key)) {
+        return togrutaLayerLabels[key];
+      }
+      return originalGet.call(this, key, ...args);
+    };
+    Object.defineProperty(cacheClass.prototype, "__bcShitTogrutaLabels", { value: true });
+    return true;
+  };
+
   let togrutaLabelCache = null;
   let togrutaLabelRebuildUnsubscribe = null;
   const setTogrutaLayerLabels = () => {
+    installTogrutaTextCacheHook();
     let names;
     try {
       if (typeof ItemColorLayerNames !== "undefined") names = ItemColorLayerNames;
@@ -358,11 +379,11 @@
         ? names.onRebuild(applyLabels, false)
         : null;
     }
-    // Apply immediately as well as after asynchronous CSV/cache rebuilds.
     applyLabels();
     return true;
   };
-  // Intentionally persistent: opening the color menu can replace the cache.
+  // Install early if TextCache exists; retry to catch lazy initialization.
+  installTogrutaTextCacheHook();
   setInterval(setTogrutaLayerLabels, 250);
 
   if (!window.__bcShitTogrutaNameInstalled) {
