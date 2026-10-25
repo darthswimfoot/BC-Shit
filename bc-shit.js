@@ -434,8 +434,9 @@
     npcBodyAccessHookInstalled = true;
   }
 
-  // Add a direct "Dress NPC" button to Private Room NPC cards.
-  // Reuse the game's existing NPC custom-clothing save path.
+  // Add Dress and Rename controls to Private Room NPC cards.
+  // Renames are local to this browser/account and do not alter the game's
+  // canonical NPC definitions or the clothing save path.
   let npcDressButtonInstalled = false;
   if (
     typeof window.PrivateDrawCharacter === "function" &&
@@ -445,43 +446,82 @@
   ) {
     const originalPrivateDrawCharacter = window.PrivateDrawCharacter;
     const originalPrivateClick = window.PrivateClick;
-
-    window.PrivateDrawCharacter = function (...args) {
-      const result = originalPrivateDrawCharacter.apply(this, args);
-      if (!Array.isArray(window.PrivateCharacter)) return result;
-
+    const storagePrefix = "BCShitNpcName:" + String(window.Player?.MemberNumber ?? "local") + ":";
+    const npcKey = npc => storagePrefix + String(npc.ID) + ":" + String(npc.AccountName || npc.Name || "");
+    const originalNames = new WeakMap();
+    const storedNameFor = npc => {
+      if (!npc || !Number.isFinite(Number(npc.ID))) return null;
+      const original = originalNames.get(npc) || npc.Name;
+      const key = storagePrefix + String(npc.ID) + ":" + String(npc.AccountName || original || "");
+      try { return window.localStorage.getItem(key); }
+      catch (error) { console.warn("[BC-Shit] NPC name storage unavailable", error); return null; }
+    };
+    const applyNpcName = npc => {
+      if (!npc) return;
+      if (!originalNames.has(npc)) originalNames.set(npc, npc.Name);
+      const saved = storedNameFor(npc);
+      if (saved && npc.Name !== saved) npc.Name = saved;
+    };
+    const cardPositions = () => {
+      if (!Array.isArray(window.PrivateCharacter)) return [];
       const offset = Number(window.PrivateCharacterOffset) || 0;
       let x = 1000 - ((window.PrivateCharacter.length - offset) * 250);
       if (x < 0) x = 0;
-
+      const cards = [];
       for (let index = offset; index < window.PrivateCharacter.length && index < offset + 4; index++) {
         const npc = window.PrivateCharacter[index];
         if (!npc || index === 0) continue;
-        const buttonX = x + (index - offset) * 470 + 345;
-        // Match the game's built-in Dress / Change Appearance icon button.
-        window.DrawButton(buttonX, 25, 63, 63, "", "White", "Icons/Dress.png", window.TextGet("Dress"));
+        cards.push({ npc, dressX: x + (index - offset) * 470 + 345 });
+      }
+      return cards;
+    };
+    const renameNpc = npc => {
+      applyNpcName(npc);
+      const entered = window.prompt("Rename NPC (leave blank to restore original name):", npc.Name || "");
+      if (entered === null) return;
+      const name = entered.trim();
+      if (name.length > 60) {
+        window.alert("Please use a name of 60 characters or fewer.");
+        return;
+      }
+      const original = originalNames.get(npc) || npc.Name;
+      const key = storagePrefix + String(npc.ID) + ":" + String(npc.AccountName || original || "");
+      try {
+        if (name) window.localStorage.setItem(key, name);
+        else window.localStorage.removeItem(key);
+      } catch (error) {
+        console.warn("[BC-Shit] Could not save NPC rename", error);
+        window.alert("Name changed for this session, but browser storage was unavailable.");
+      }
+      npc.Name = name || original;
+      npc.MustDraw = true;
+      if (typeof window.CharacterRefresh === "function") {
+        try { window.CharacterRefresh(npc, false); }
+        catch (error) { console.warn("[BC-Shit] NPC refresh after rename failed", error); }
+      }
+    };
+
+    window.PrivateDrawCharacter = function (...args) {
+      for (const { npc } of cardPositions()) applyNpcName(npc);
+      const result = originalPrivateDrawCharacter.apply(this, args);
+      for (const { dressX } of cardPositions()) {
+        window.DrawButton(dressX, 25, 63, 63, "", "White", "Icons/Dress.png", window.TextGet("Dress"));
+        window.DrawButton(dressX, 94, 63, 50, "Name", "White", "", "Rename NPC");
       }
       return result;
     };
 
     window.PrivateClick = function (...args) {
-      if (
-        window.LogQuery("RentRoom", "PrivateRoom") &&
-        window.MouseY >= 25 && window.MouseY < 88 &&
-        Array.isArray(window.PrivateCharacter)
-      ) {
-        const offset = Number(window.PrivateCharacterOffset) || 0;
-        let x = 1000 - ((window.PrivateCharacter.length - offset) * 250);
-        if (x < 0) x = 0;
-
-        for (let index = offset; index < window.PrivateCharacter.length && index < offset + 4; index++) {
-          if (index === 0 || !window.PrivateCharacter[index]) continue;
-          const buttonX = x + (index - offset) * 470 + 345;
-          if (window.MouseX >= buttonX && window.MouseX < buttonX + 63) {
-            const npc = window.PrivateCharacter[index];
-            // This is the same save path used by the built-in "Custom" clothes dialogue.
+      if (window.LogQuery("RentRoom", "PrivateRoom")) {
+        for (const { npc, dressX } of cardPositions()) {
+          if (window.MouseX < dressX || window.MouseX >= dressX + 63) continue;
+          if (window.MouseY >= 25 && window.MouseY < 88) {
             window.PrivateCharacterNewClothes = npc;
             window.CharacterAppearanceLoadCharacter(npc);
+            return;
+          }
+          if (window.MouseY >= 94 && window.MouseY < 144) {
+            renameNpc(npc);
             return;
           }
         }
@@ -495,7 +535,7 @@
       window.PrivateClick = originalPrivateClick;
       delete window.__bcShitNpcDressButtonInstalled;
       delete window.__restoreBCShitNpcDressButton;
-      console.log("Private Room NPC dress buttons removed.");
+      console.log("Private Room NPC Dress and Rename buttons removed.");
     };
     npcDressButtonInstalled = true;
   }
