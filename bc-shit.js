@@ -308,7 +308,8 @@
     registeredTogrutaAsset.Description = "Togruta Small";
     registeredTogrutaAsset.DescriptionPlural = "Togruta Small";
     registeredTogrutaAsset.DefaultColor = ["#FFFFFF", "#FFFFFF"];
-    registeredTogrutaAsset.Layer = [{ Name: "Main" }, { Name: "Stripes" }];
+    // Do not overwrite Layer here: AssetAdd has already converted the raw definitions
+    // into fully mapped runtime layers (Alpha, Priority, PoseMapping, etc.).
   }
   const registeredTogrutaBackAsset = window.AssetGet("Female3DCG", "HairBack", backItemName);
   if (registeredTogrutaBackAsset) {
@@ -317,18 +318,8 @@
     registeredTogrutaBackAsset.Priority = 999999;
     registeredTogrutaBackAsset.LayerPriority = 999999;
     registeredTogrutaBackAsset.DefaultColor = ["#FFFFFF", "#FFFFFF"];
-    registeredTogrutaBackAsset.Layer = [{ Name: "Main" }, { Name: "Stripes" }];
-    // The broken asset may already be present in a character appearance entry.
-    // Repair those item-level Asset references too, without changing its group or name.
-    for (const character of [window.Player, ...(Array.isArray(window.Character) ? window.Character : [])]) {
-      if (!character || !Array.isArray(character.Appearance)) continue;
-      for (const item of character.Appearance) {
-        if (item && item.Asset && item.Asset.Name === backItemName && !Array.isArray(item.Asset.Layer)) {
-          item.Asset.Layer = registeredTogrutaBackAsset.Layer.map(layer => layer && typeof layer === "object" ? { ...layer } : layer);
-        }
-      }
-    }
-    // Keep Layer as the structured array required by R133; never replace it with a string.
+    // Do not overwrite Layer here: AssetAdd has already converted the raw definitions
+    // into fully mapped runtime layers (Alpha, Priority, PoseMapping, etc.).
   }
 
   if (!window.__bcShitTogrutaNameInstalled) {
