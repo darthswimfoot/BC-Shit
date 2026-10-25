@@ -322,9 +322,20 @@
     // into fully mapped runtime layers (Alpha, Priority, PoseMapping, etc.).
   }
 
-  // Bondage Club uses TextCache (not Map) for ItemColorLayerNames.
-  // Wait for ItemColorLoad to initialize it, then add labels under both the
-  // full group-prefixed keys seen in R133 and the asset-name-only variants.
+  // Bondage Club recreates ItemColorLayerNames when the color menu opens.
+  // Keep watching for replacement caches and reapply labels after each rebuild.
+  const togrutaLayerLabels = {
+    [itemName + "Main"]: "Main",
+    [itemName + "Stripes"]: "Stripes",
+    ["HairFront" + itemName + "Main"]: "Main",
+    ["HairFront" + itemName + "Stripes"]: "Stripes",
+    [backItemName + "Main"]: "Main",
+    [backItemName + "Stripes"]: "Stripes",
+    ["HairBack" + backItemName + "Main"]: "Main",
+    ["HairBack" + backItemName + "Stripes"]: "Stripes"
+  };
+  let togrutaLabelCache = null;
+  let togrutaLabelRebuildUnsubscribe = null;
   const setTogrutaLayerLabels = () => {
     let names;
     try {
@@ -333,35 +344,26 @@
     if (!names && window.ItemColorLayerNames) names = window.ItemColorLayerNames;
     if (!names || !names.cache || typeof names.cache !== "object") return false;
 
-    const labels = {
-      [itemName + "Main"]: "Main",
-      [itemName + "Stripes"]: "Stripes",
-      ["HairFront" + itemName + "Main"]: "Main",
-      ["HairFront" + itemName + "Stripes"]: "Stripes",
-      [backItemName + "Main"]: "Main",
-      [backItemName + "Stripes"]: "Stripes",
-      ["HairBack" + backItemName + "Main"]: "Main",
-      ["HairBack" + backItemName + "Stripes"]: "Stripes"
-    };
     const applyLabels = () => {
-      if (!names.cache || typeof names.cache !== "object") return;
-      Object.assign(names.cache, labels);
+      if (names.cache && typeof names.cache === "object") {
+        Object.assign(names.cache, togrutaLayerLabels);
+      }
     };
-    if (typeof names.onRebuild === "function") names.onRebuild(applyLabels, false);
-    if (names.loaded) applyLabels();
+    if (names !== togrutaLabelCache) {
+      if (typeof togrutaLabelRebuildUnsubscribe === "function") {
+        togrutaLabelRebuildUnsubscribe();
+      }
+      togrutaLabelCache = names;
+      togrutaLabelRebuildUnsubscribe = typeof names.onRebuild === "function"
+        ? names.onRebuild(applyLabels, false)
+        : null;
+    }
+    // Apply immediately as well as after asynchronous CSV/cache rebuilds.
+    applyLabels();
     return true;
   };
-  // The color cache is initialized lazily when the color picker opens.
-  let togrutaLabelAttempts = 0;
-  const togrutaLabelTimer = setInterval(() => {
-    togrutaLabelAttempts++;
-    if (setTogrutaLayerLabels() || togrutaLabelAttempts >= 120) {
-      clearInterval(togrutaLabelTimer);
-      if (togrutaLabelAttempts >= 120) {
-        console.warn("[BC-Shit Togruta] Could not find ItemColorLayerNames TextCache");
-      }
-    }
-  }, 500);
+  // Intentionally persistent: opening the color menu can replace the cache.
+  setInterval(setTogrutaLayerLabels, 250);
 
   if (!window.__bcShitTogrutaNameInstalled) {
     if (typeof window.AssetDescription === "function") {
