@@ -3,35 +3,39 @@
   console.info("[BC-Shit] script execution started", location.href);
   const itemName = "TogrutaHeadTailsSmallFront";
   const backItemName = "TogrutaHeadTailsSmallBack";
-  const sourceTexture = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@31d1284bfefae5652f4ac7a481f4a848ee0128cb/togrutaheadtailssmallfront.png";
-  const backSourceTexture = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@31d1284bfefae5652f4ac7a481f4a848ee0128cb/togrutaheadtailssmallback.png";
-  // Shift visible pixels 50px right inside the original canvas. The source
-  // sprite is 50px left of the game's expected HairBack origin.
-  let alignedBackTexture = backSourceTexture;
-  try {
+  const textureCommit = "d3573ce06148c8be74f3d0985190ccbfeff40e98";
+  const textureRoot = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@" + textureCommit + "/";
+  const sourceTexture = textureRoot + "togrutaheadtailssmallfront.png";
+  const stripeSourceTexture = textureRoot + "togrutaheadtailssmallfrontstripes.png";
+  const backSourceTexture = textureRoot + "togrutaheadtailssmallback.png";
+  const backStripeSourceTexture = textureRoot + "togrutaheadtailssmallbackstripes.png";
+  // Shift visible pixels 50px right inside the original back canvas. Apply
+  // the identical transform to the back stripe overlay so both layers align.
+  async function alignBackTexture(url) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     let response;
-    try {
-      response = await fetch(backSourceTexture, { signal: controller.signal });
-    } finally {
-      clearTimeout(timeoutId);
-    }
+    try { response = await fetch(url, { signal: controller.signal }); }
+    finally { clearTimeout(timeoutId); }
     if (!response.ok) throw new Error("HTTP " + response.status);
     const bitmap = await createImageBitmap(await response.blob());
-    if (bitmap.width === 300 && bitmap.height === 500) {
+    try {
+      if (bitmap.width !== 300 || bitmap.height !== 500) return url;
       const canvas = document.createElement("canvas");
       canvas.width = 300;
       canvas.height = 500;
       const context = canvas.getContext("2d");
       context.clearRect(0, 0, canvas.width, canvas.height);
       context.drawImage(bitmap, 50, 0);
-      alignedBackTexture = canvas.toDataURL("image/png");
-    }
-    bitmap.close?.();
-  } catch (error) {
-    console.warn("BC-Shit: using original back texture because canvas alignment failed:", error);
+      return canvas.toDataURL("image/png");
+    } finally { bitmap.close?.(); }
   }
+  let alignedBackTexture = backSourceTexture;
+  let alignedBackStripeTexture = backStripeSourceTexture;
+  try { alignedBackTexture = await alignBackTexture(backSourceTexture); }
+  catch (error) { console.warn("BC-Shit: using original back texture because canvas alignment failed:", error); }
+  try { alignedBackStripeTexture = await alignBackTexture(backStripeSourceTexture); }
+  catch (error) { console.warn("BC-Shit: using original back stripe overlay because canvas alignment failed:", error); }
   if (window.__bcShitHeadTailsInstalled) {
     alert("BC-Shit is already installed for this game session.");
     return;
@@ -78,10 +82,10 @@
     // Compare case-insensitively so the first uncached request is redirected too.
     const lowerPath = path.toLowerCase();
     if (lowerPath.includes(itemName.toLowerCase())) {
-      return sourceTexture;
+      return lowerPath.includes("stripes") ? stripeSourceTexture : sourceTexture;
     }
     if (lowerPath.includes(backItemName.toLowerCase())) {
-      return alignedBackTexture;
+      return lowerPath.includes("stripes") ? alignedBackStripeTexture : alignedBackTexture;
     }
     return url;
   };
@@ -251,21 +255,31 @@
   });
   await Promise.all([
     preloadGameCache("DrawImageCache", sourceTexture),
+    preloadGameCache("DrawImageCache", stripeSourceTexture),
     preloadGameCache("DrawImageCache", alignedBackTexture),
+    preloadGameCache("DrawImageCache", alignedBackStripeTexture),
     preloadGameCache("GLDrawImageCache", sourceTexture),
-    preloadGameCache("GLDrawImageCache", alignedBackTexture)
+    preloadGameCache("GLDrawImageCache", stripeSourceTexture),
+    preloadGameCache("GLDrawImageCache", alignedBackTexture),
+    preloadGameCache("GLDrawImageCache", alignedBackStripeTexture)
   ]);
 
   try {
     if (!window.AssetGet("Female3DCG", "HairFront", itemName)) {
-      window.AssetAdd(group, { ...base, Name: itemName, Description: "Togruta Small" }, window.AssetFemale3DCGExtended, groupDef);
+      window.AssetAdd(group, {
+        ...base, Name: itemName, Description: "Togruta Small",
+        DescriptionPlural: "Togruta Small",
+        DefaultColor: ["#FFFFFF", "#FFFFFF"],
+        Layer: [{ Name: "Main" }, { Name: "Stripes" }]
+      }, window.AssetFemale3DCGExtended, groupDef);
     }
     if (!window.AssetGet("Female3DCG", "HairBack", backItemName)) {
-      const backAssetData = { ...backBase, Name: backItemName, Description: "Togruta Small", DescriptionPlural: "Togruta Small", Priority: 999999, LayerPriority: 999999 };
-      // Preserve an explicit layer definition when the chosen asset has one.
-      // If HairBack1 has no Layer array, let R133 create its standard single layer.
-      if (Array.isArray(backBase.Layer)) backAssetData.Layer = backBase.Layer.map(layer => layer && typeof layer === "object" ? { ...layer } : layer);
-      else delete backAssetData.Layer;
+      const backAssetData = {
+        ...backBase, Name: backItemName, Description: "Togruta Small",
+        DescriptionPlural: "Togruta Small", Priority: 999999, LayerPriority: 999999,
+        DefaultColor: ["#FFFFFF", "#FFFFFF"],
+        Layer: [{ Name: "Main" }, { Name: "Stripes" }]
+      };
       window.AssetAdd(backGroup, backAssetData, window.AssetFemale3DCGExtended, backGroupDef);
     }
   } catch (error) {
@@ -281,6 +295,8 @@
   if (registeredTogrutaAsset) {
     registeredTogrutaAsset.Description = "Togruta Small";
     registeredTogrutaAsset.DescriptionPlural = "Togruta Small";
+    registeredTogrutaAsset.DefaultColor = ["#FFFFFF", "#FFFFFF"];
+    registeredTogrutaAsset.Layer = [{ Name: "Main" }, { Name: "Stripes" }];
   }
   const registeredTogrutaBackAsset = window.AssetGet("Female3DCG", "HairBack", backItemName);
   if (registeredTogrutaBackAsset) {
@@ -288,12 +304,8 @@
     registeredTogrutaBackAsset.DescriptionPlural = "Togruta Small";
     registeredTogrutaBackAsset.Priority = 999999;
     registeredTogrutaBackAsset.LayerPriority = 999999;
-    // Repair stale registrations left by earlier bookmarklet versions.
-    if (!Array.isArray(registeredTogrutaBackAsset.Layer)) {
-      registeredTogrutaBackAsset.Layer = Array.isArray(backBase.Layer)
-        ? backBase.Layer.map(layer => layer && typeof layer === "object" ? { ...layer } : layer)
-        : [{ Name: null, Asset: registeredTogrutaBackAsset }];
-    }
+    registeredTogrutaBackAsset.DefaultColor = ["#FFFFFF", "#FFFFFF"];
+    registeredTogrutaBackAsset.Layer = [{ Name: "Main" }, { Name: "Stripes" }];
     // The broken asset may already be present in a character appearance entry.
     // Repair those item-level Asset references too, without changing its group or name.
     for (const character of [window.Player, ...(Array.isArray(window.Character) ? window.Character : [])]) {
