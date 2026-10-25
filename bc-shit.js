@@ -282,7 +282,7 @@
         ...base, Name: itemName, Description: "Togruta Small",
         DescriptionPlural: "Togruta Small",
         DefaultColor: ["#FFFFFF", "#FFFFFF"],
-        Layer: [{ Name: "Main", ParentGroup: "Head" }, { Name: "Stripes", ParentGroup: "Head" }]
+        Layer: [{ Name: "Main" }, { Name: "Stripes" }]
       }, window.AssetFemale3DCGExtended, groupDef);
     }
     if (!window.AssetGet("Female3DCG", "HairBack", backItemName)) {
@@ -290,7 +290,7 @@
         ...backBase, Name: backItemName, Description: "Togruta Small",
         DescriptionPlural: "Togruta Small", Priority: 999999, LayerPriority: 999999,
         DefaultColor: ["#FFFFFF", "#FFFFFF"],
-        Layer: [{ Name: "Main", ParentGroup: "Head" }, { Name: "Stripes", ParentGroup: "Head" }]
+        Layer: [{ Name: "Main" }, { Name: "Stripes" }]
       };
       window.AssetAdd(backGroup, backAssetData, window.AssetFemale3DCGExtended, backGroupDef);
     }
@@ -308,7 +308,7 @@
     registeredTogrutaAsset.Description = "Togruta Small";
     registeredTogrutaAsset.DescriptionPlural = "Togruta Small";
     registeredTogrutaAsset.DefaultColor = ["#FFFFFF", "#FFFFFF"];
-    registeredTogrutaAsset.Layer = [{ Name: "Main", ParentGroup: "Head" }, { Name: "Stripes", ParentGroup: "Head" }];
+    registeredTogrutaAsset.Layer = [{ Name: "Main" }, { Name: "Stripes" }];
   }
   const registeredTogrutaBackAsset = window.AssetGet("Female3DCG", "HairBack", backItemName);
   if (registeredTogrutaBackAsset) {
@@ -317,7 +317,7 @@
     registeredTogrutaBackAsset.Priority = 999999;
     registeredTogrutaBackAsset.LayerPriority = 999999;
     registeredTogrutaBackAsset.DefaultColor = ["#FFFFFF", "#FFFFFF"];
-    registeredTogrutaBackAsset.Layer = [{ Name: "Main", ParentGroup: "Head" }, { Name: "Stripes", ParentGroup: "Head" }];
+    registeredTogrutaBackAsset.Layer = [{ Name: "Main" }, { Name: "Stripes" }];
     // The broken asset may already be present in a character appearance entry.
     // Repair those item-level Asset references too, without changing its group or name.
     for (const character of [window.Player, ...(Array.isArray(window.Character) ? window.Character : [])]) {
