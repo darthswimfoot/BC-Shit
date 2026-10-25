@@ -197,12 +197,14 @@
       const requestUrl = typeof input === "string" ? input
         : input && typeof input.url === "string" ? input.url : "";
       const mappedUrl = mapImageUrl(requestUrl);
-      if (mappedUrl !== requestUrl) {
-        // Bondage Club R133 may attach If-None-Match while revalidating its
-        // ImageCache. jsDelivr rejects that non-safelisted header in CORS
-        // preflight, so remove conditional headers only for our CDN textures.
-        // Preserve the rest of the caller's request options and headers.
-        const headers = new Headers(init?.headers || (input && input.headers) || undefined);
+      const isTogrutaCdnUrl = typeof requestUrl === "string" && requestUrl.startsWith(textureRoot);
+      if (mappedUrl !== requestUrl || isTogrutaCdnUrl) {
+        // R133 may already have redirected the cache key to our CDN URL before
+        // fetch runs. Handle those URLs too, not only original game asset paths.
+        // Merge Request and init headers, then remove conditional headers that
+        // jsDelivr rejects during CORS preflight.
+        const headers = new Headers(input instanceof Request ? input.headers : undefined);
+        new Headers(init?.headers || undefined).forEach((value, key) => headers.set(key, value));
         headers.delete("if-none-match");
         headers.delete("if-modified-since");
         const safeInit = { ...(init || {}), headers, cache: "no-store" };
@@ -280,7 +282,7 @@
         ...base, Name: itemName, Description: "Togruta Small",
         DescriptionPlural: "Togruta Small",
         DefaultColor: ["#FFFFFF", "#FFFFFF"],
-        Layer: [{ Name: "Main" }, { Name: "Stripes" }]
+        Layer: [{ Name: "Main", ParentGroup: "Head" }, { Name: "Stripes", ParentGroup: "Head" }]
       }, window.AssetFemale3DCGExtended, groupDef);
     }
     if (!window.AssetGet("Female3DCG", "HairBack", backItemName)) {
@@ -288,7 +290,7 @@
         ...backBase, Name: backItemName, Description: "Togruta Small",
         DescriptionPlural: "Togruta Small", Priority: 999999, LayerPriority: 999999,
         DefaultColor: ["#FFFFFF", "#FFFFFF"],
-        Layer: [{ Name: "Main" }, { Name: "Stripes" }]
+        Layer: [{ Name: "Main", ParentGroup: "Head" }, { Name: "Stripes", ParentGroup: "Head" }]
       };
       window.AssetAdd(backGroup, backAssetData, window.AssetFemale3DCGExtended, backGroupDef);
     }
@@ -306,7 +308,7 @@
     registeredTogrutaAsset.Description = "Togruta Small";
     registeredTogrutaAsset.DescriptionPlural = "Togruta Small";
     registeredTogrutaAsset.DefaultColor = ["#FFFFFF", "#FFFFFF"];
-    registeredTogrutaAsset.Layer = [{ Name: "Main" }, { Name: "Stripes" }];
+    registeredTogrutaAsset.Layer = [{ Name: "Main", ParentGroup: "Head" }, { Name: "Stripes", ParentGroup: "Head" }];
   }
   const registeredTogrutaBackAsset = window.AssetGet("Female3DCG", "HairBack", backItemName);
   if (registeredTogrutaBackAsset) {
@@ -315,7 +317,7 @@
     registeredTogrutaBackAsset.Priority = 999999;
     registeredTogrutaBackAsset.LayerPriority = 999999;
     registeredTogrutaBackAsset.DefaultColor = ["#FFFFFF", "#FFFFFF"];
-    registeredTogrutaBackAsset.Layer = [{ Name: "Main" }, { Name: "Stripes" }];
+    registeredTogrutaBackAsset.Layer = [{ Name: "Main", ParentGroup: "Head" }, { Name: "Stripes", ParentGroup: "Head" }];
     // The broken asset may already be present in a character appearance entry.
     // Repair those item-level Asset references too, without changing its group or name.
     for (const character of [window.Player, ...(Array.isArray(window.Character) ? window.Character : [])]) {
