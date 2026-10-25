@@ -197,7 +197,17 @@
       const requestUrl = typeof input === "string" ? input
         : input && typeof input.url === "string" ? input.url : "";
       const mappedUrl = mapImageUrl(requestUrl);
-      if (mappedUrl !== requestUrl) return originalFetch.call(this, mappedUrl, init);
+      if (mappedUrl !== requestUrl) {
+        // Bondage Club R133 may attach If-None-Match while revalidating its
+        // ImageCache. jsDelivr rejects that non-safelisted header in CORS
+        // preflight, so remove conditional headers only for our CDN textures.
+        // Preserve the rest of the caller's request options and headers.
+        const headers = new Headers(init?.headers || (input && input.headers) || undefined);
+        headers.delete("if-none-match");
+        headers.delete("if-modified-since");
+        const safeInit = { ...(init || {}), headers, cache: "no-store" };
+        return originalFetch.call(this, mappedUrl, safeInit);
+      }
       return originalFetch.call(this, input, init);
     };
     window.__bcShitTogrutaFetchInstalled = true;
