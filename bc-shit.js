@@ -3,8 +3,8 @@
   console.info("[BC-Shit] script execution started", location.href);
   const itemName = "TogrutaHeadTailsSmallFront";
   const backItemName = "TogrutaHeadTailsSmallBack";
-  const sourceTexture = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@main/togrutaheadtailssmallfront.png";
-  const backSourceTexture = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@main/togrutaheadtailssmallback.png";
+  const sourceTexture = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@31d1284bfefae5652f4ac7a481f4a848ee0128cb/togrutaheadtailssmallfront.png";
+  const backSourceTexture = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@31d1284bfefae5652f4ac7a481f4a848ee0128cb/togrutaheadtailssmallback.png";
   // Shift visible pixels 50px right inside the original canvas. The source
   // sprite is 50px left of the game's expected HairBack origin.
   let alignedBackTexture = backSourceTexture;
