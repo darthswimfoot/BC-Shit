@@ -580,10 +580,28 @@
       }
     };
 
+    const slaveCollarFor = npc => {
+      const neck = npc?.Appearance?.find(item => item?.Asset?.Group?.Name === "ItemNeck");
+      return neck && /slave.?collar/i.test(String(neck.Asset?.Name || "")) ? neck : null;
+    };
+    const removeSlaveCollar = npc => {
+      if (!slaveCollarFor(npc)) return;
+      if (!window.confirm("Remove this NPC's slave collar without disowning them?")) return;
+      if (typeof window.InventoryRemove !== "function") {
+        window.alert("Inventory removal is not available on this screen.");
+        return;
+      }
+      window.InventoryRemove(npc, "ItemNeck", false);
+      if (typeof window.CharacterRefresh === "function") window.CharacterRefresh(npc, false);
+      npc.MustDraw = true;
+      if (slaveCollarFor(npc)) window.alert("The game restored the slave collar; removal did not persist.");
+    };
+
     window.PrivateDrawCharacter = function (...args) {
       for (const { npc } of cardPositions()) applyNpcName(npc);
       const result = originalPrivateDrawCharacter.apply(this, args);
-      for (const { dressX } of cardPositions()) {
+      for (const { npc, dressX } of cardPositions()) {
+        if (slaveCollarFor(npc)) window.DrawButton(dressX + 70, 94, 115, 50, "Uncollar", "White", "", "Remove slave collar");
         window.DrawButton(dressX, 25, 63, 63, "", "White", "Icons/Dress.png", window.TextGet("Dress"));
         window.DrawButton(dressX, 94, 63, 50, "Name", "White", "", "Rename NPC");
       }
@@ -593,10 +611,14 @@
     window.PrivateClick = function (...args) {
       if (window.LogQuery("RentRoom", "PrivateRoom")) {
         for (const { npc, dressX } of cardPositions()) {
-          if (window.MouseX < dressX || window.MouseX >= dressX + 63) continue;
+          if (window.MouseX < dressX || window.MouseX >= dressX + 185) continue;
           if (window.MouseY >= 25 && window.MouseY < 88) {
             window.PrivateCharacterNewClothes = npc;
             window.CharacterAppearanceLoadCharacter(npc);
+            return;
+          }
+          if (slaveCollarFor(npc) && window.MouseX >= dressX + 70 && window.MouseX < dressX + 185 && window.MouseY >= 94 && window.MouseY < 144) {
+            removeSlaveCollar(npc);
             return;
           }
           if (window.MouseY >= 94 && window.MouseY < 144) {
