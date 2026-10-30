@@ -792,23 +792,26 @@
     const originalPrivateLoadForRecruit = window.PrivateLoad;
     if (typeof originalPrivateLoadForRecruit === "function") {
       window.PrivateLoad = function (...args) {
-        let added = false;
-        if (pendingRecruit &&
-            !window.PrivateCharacter.some(c => c && c.Name === pendingRecruit.record.Name)) {
-          window.PrivateCharacter.push(pendingRecruit.record);
-          added = true;
-        }
+        const result = originalPrivateLoadForRecruit.apply(this, args);
+        if (!pendingRecruit) return result;
+        const pending = pendingRecruit;
+        pendingRecruit = null;
         try {
-          const result = originalPrivateLoadForRecruit.apply(this, args);
-          if (added && typeof window.ServerPrivateCharacterSync === "function")
-            window.ServerPrivateCharacterSync();
-          pendingRecruit = null;
-          return result;
+          if (window.PrivateCharacter.some(c => c && c.Name === pending.record.Name)) return result;
+          if (typeof window.PrivateAddCharacter !== "function") return result;
+          const added = window.PrivateAddCharacter(pending.source, "", true);
+          if (pending.record.Trait?.length) {
+            added.Trait = pending.record.Trait.map(t => ({ ...t }));
+            if (typeof window.NPCTraitDialog === "function") window.NPCTraitDialog(added);
+          }
+          added.Love = pending.record.Love;
+          if (pending.record.Title) added.Title = pending.record.Title;
+          if (typeof window.ServerPrivateCharacterSync === "function") window.ServerPrivateCharacterSync();
         } catch (error) {
-          if (added) window.PrivateCharacter.pop();
-          console.error("[BC-Shit] Private Room recruitment load failed:", error);
-          throw error;
+          console.error("[BC-Shit] Recruitment after Private Room load failed:", error);
+          window.alert("Private Room opened, but NPC recruitment failed.");
         }
+        return result;
       };
     }
     recruitButton.addEventListener("click", () => {
