@@ -634,8 +634,8 @@
       for (const [positive, negative] of axes) {
         const current = window.NPCTraitGet(npc, positive);
         const input = window.prompt(
-          "Change trait " + positive + "/" + negative + " (-100 to 100):\\n" +
-          "Positive = " + positive + ", negative = " + negative + ".\\n" +
+          "Change trait " + positive + "/" + negative + " (-100 to 100):\n" +
+          "Positive = " + positive + ", negative = " + negative + ".\n" +
           "Current: " + current,
           String(current)
         );
