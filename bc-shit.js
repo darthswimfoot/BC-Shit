@@ -792,7 +792,19 @@
     const originalPrivateLoadForRecruit = window.PrivateLoad;
     if (typeof originalPrivateLoadForRecruit === "function") {
       window.PrivateLoad = function (...args) {
-        const result = originalPrivateLoadForRecruit.apply(this, args);
+        // PrivateLoad randomly assigns existing NPCs to the bed on entry.
+        // Suppress that side effect only when this entry completes recruitment.
+        const recruiting = !!pendingRecruit;
+        const originalRandomBed = window.PrivateRandomBed;
+        if (recruiting && typeof originalRandomBed === "function")
+          window.PrivateRandomBed = function () {};
+        let result;
+        try {
+          result = originalPrivateLoadForRecruit.apply(this, args);
+        } finally {
+          if (recruiting && typeof originalRandomBed === "function")
+            window.PrivateRandomBed = originalRandomBed;
+        }
         if (!pendingRecruit) return result;
         const pending = pendingRecruit;
         pendingRecruit = null;
