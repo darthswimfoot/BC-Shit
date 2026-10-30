@@ -597,12 +597,68 @@
       if (slaveCollarFor(npc)) window.alert("The game restored the slave collar; removal did not persist.");
     };
 
+    const makeNpcSlave = npc => {
+      if (npc.IsOwnedByPlayer?.() || npc.Owner === window.Player?.Name) return;
+      if (npc.IsOwned?.() && !npc.IsOwnedByPlayer?.()) {
+        window.alert("This NPC is already owned by someone else.");
+        return;
+      }
+      if (!window.confirm("Make " + npc.Name + " your slave? This changes their actual Private Room ownership.")) return;
+      if (typeof window.NPCEventAdd !== "function" || typeof window.ServerPrivateCharacterSync !== "function") {
+        window.alert("The game's NPC ownership/save functions are unavailable.");
+        return;
+      }
+      window.NPCEventAdd(npc, "NPCCollaring", window.CurrentTime || Date.now());
+      npc.Owner = window.Player.Name;
+      npc.Love = 100;
+      npc.AllowItem = true;
+      npc.MustDraw = true;
+      window.ServerPrivateCharacterSync();
+    };
+    const editNpcTraits = npc => {
+      if (!Array.isArray(npc.Trait) || typeof window.NPCTraitSet !== "function" ||
+          typeof window.ServerPrivateCharacterSync !== "function") {
+        window.alert("The game's NPC trait editor/save functions are unavailable.");
+        return;
+      }
+      // The game stores named positive traits; their opposites are separate names.
+      // Editing an existing entry retains that trait's exact game-supported name.
+      const entries = npc.Trait.map(t => ({ Name: t.Name, Value: t.Value }));
+      entries.push({ Name: "Relation", Value: npc.Love ?? 0 });
+      const choice = window.prompt("Edit " + npc.Name + "'s traits:\\n" +
+        entries.map((t, i) => (i + 1) + ". " + t.Name + ": " + t.Value).join("\\n") +
+        "\\n\\nEnter a number to edit, or Cancel to close:", "1");
+      if (choice === null) return;
+      const index = Number(choice) - 1;
+      if (!Number.isInteger(index) || index < 0 || index >= entries.length) {
+        window.alert("Choose a listed trait number.");
+        return;
+      }
+      const selected = entries[index];
+      const input = window.prompt("Set " + selected.Name + " (0–100):", String(selected.Value));
+      if (input === null) return;
+      const value = Number(input.trim());
+      if (!input.trim() || !Number.isInteger(value) || value < 0 || value > 100) {
+        window.alert("Enter a whole number from 0 to 100.");
+        return;
+      }
+      if (selected.Name === "Relation") npc.Love = value;
+      else window.NPCTraitSet(npc, selected.Name, value);
+      if (typeof window.NPCTraitDialog === "function") window.NPCTraitDialog(npc);
+      npc.MustDraw = true;
+      window.ServerPrivateCharacterSync();
+      // Reopen so multiple values can be edited without leaving the NPC card.
+      editNpcTraits(npc);
+    };
+
     window.PrivateDrawCharacter = function (...args) {
       for (const { npc } of cardPositions()) applyNpcName(npc);
       const result = originalPrivateDrawCharacter.apply(this, args);
       for (const { npc, dressX } of cardPositions()) {
         if (slaveCollarFor(npc)) window.DrawButton(dressX + 70, 94, 115, 50, "Uncollar", "White", "", "Remove slave collar");
         window.DrawButton(dressX, 25, 63, 63, "", "White", "Icons/Dress.png", window.TextGet("Dress"));
+        if (!npc.IsOwnedByPlayer?.() && npc.Owner !== window.Player?.Name) window.DrawButton(dressX + 70, 25, 100, 63, "Enslave", "White", "", "Make NPC your slave");
+        window.DrawButton(dressX + 177, 25, 95, 63, "Traits", "White", "", "Edit NPC traits and relation");
         window.DrawButton(dressX, 94, 63, 50, "Name", "White", "", "Rename NPC");
       }
       return result;
@@ -611,8 +667,10 @@
     window.PrivateClick = function (...args) {
       if (window.LogQuery("RentRoom", "PrivateRoom")) {
         for (const { npc, dressX } of cardPositions()) {
-          if (window.MouseX < dressX || window.MouseX >= dressX + 185) continue;
-          if (window.MouseY >= 25 && window.MouseY < 88) {
+          if (window.MouseX < dressX || window.MouseX >= dressX + 272) continue;
+          if (window.MouseY >= 25 && window.MouseY < 88 && window.MouseX >= dressX + 177 && window.MouseX < dressX + 272) { editNpcTraits(npc); return; }
+          if (window.MouseY >= 25 && window.MouseY < 88 && window.MouseX >= dressX + 70 && window.MouseX < dressX + 170) { makeNpcSlave(npc); return; }
+          if (window.MouseY >= 25 && window.MouseY < 88 && window.MouseX < dressX + 63) {
             window.PrivateCharacterNewClothes = npc;
             window.CharacterAppearanceLoadCharacter(npc);
             return;
