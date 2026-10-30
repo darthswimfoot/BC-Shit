@@ -774,9 +774,7 @@
     recruitButton.addEventListener("click", () => {
       const npc = recruitCandidate();
       if (!npc) return;
-      if (typeof window.CharacterLoadNPC !== "function" ||
-          typeof window.ServerAppearanceBundle !== "function" ||
-          typeof window.NPCEventAdd !== "function" ||
+      if (typeof window.ServerAppearanceBundle !== "function" ||
           typeof window.ServerAccountUpdate?.QueueData !== "function") {
         window.alert("Private Room saving functions are not available.");
         return;
@@ -785,57 +783,35 @@
           "A copy will be added to your Private Room. The original NPC may remain in this room.")) return;
       if (window.PrivateCharacter.some(c => c && c.Name === npc.Name)) return;
       try {
-        const copy = window.CharacterLoadNPC("NPC_Private_Custom");
-        copy.Name = npc.Name;
-        copy.AccountName = "NPC_Private_Custom" + window.PrivateCharacter.length;
-        copy.AssetFamily = npc.AssetFamily || copy.AssetFamily;
-        copy.Appearance = npc.Appearance.slice();
-        copy.AppearanceFull = npc.Appearance.slice();
-        copy.Love = Number.isFinite(npc.Love) ? npc.Love : 0;
-        copy.Title = npc.Title || "";
-        copy.Trait = Array.isArray(npc.Trait) ? npc.Trait.map(t => ({ Name: t.Name, Value: t.Value })) : [];
-        if (!copy.Trait.length && typeof window.NPCTraitGenerate === "function") window.NPCTraitGenerate(copy);
-        copy.Event = Array.isArray(npc.Event) ? npc.Event.map(e => ({ ...e })) : [];
-        copy.Owner = npc.Owner || "";
-        copy.Lover = npc.Lover || "";
-        if (npc.ArousalSettings) copy.ArousalSettings = { ...npc.ArousalSettings };
-        window.NPCEventAdd(copy, "PrivateRoomEntry", Number(window.CurrentTime) || Date.now());
-        // PrivateLoad normally initializes these when entering the room.
-        // Recruited NPCs are inserted while outside it, so initialize them now
-        // rather than requiring a full page reload for working dialogue.
-        if (typeof window.NPCTraitDialog === "function") window.NPCTraitDialog(copy);
-        if (typeof window.NPCArousal === "function") window.NPCArousal(copy);
-        if (copy.ArousalSettings) {
-          copy.ArousalSettings.Active = "Automatic";
-          copy.ArousalSettings.Visible = "All";
-        }
-        if (typeof window.ActivityTimerProgress === "function") window.ActivityTimerProgress(copy, 0);
-        if (typeof window.CharacterRefresh === "function") window.CharacterRefresh(copy);
-        if (typeof window.ReputationGet === "function" && typeof window.NPCTraitGet === "function") {
-          copy.AllowItem = (window.ReputationGet("Dominant") + 25 >= window.NPCTraitGet(copy, "Dominant")) ||
-            copy.IsOwnedByPlayer?.() || copy.IsRestrained?.() || !copy.CanTalk?.();
-        }
-        const members = window.PrivateCharacter.slice(1).concat(copy);
-        const serialized = members.map(member => {
+        // Serialize the source NPC directly. Creating a new live NPC or calling
+        // NPC dialogue/trait loaders while another conversation is active can
+        // disrupt that conversation's stage and Leave behavior.
+        const makeRecord = member => {
           const record = {
-            Name: member.Name, Love: member.Love, Title: member.Title,
-            Trait: member.Trait, Cage: member.Cage, Owner: member.Owner,
-            Lover: member.Lover, AssetFamily: member.AssetFamily,
+            Name: member.Name, Love: member.Love ?? 0, Title: member.Title || "",
+            Trait: Array.isArray(member.Trait) ? member.Trait.map(t => ({ ...t })) : [],
+            Cage: member.Cage, Owner: member.Owner, Lover: member.Lover,
+            AssetFamily: member.AssetFamily,
             Appearance: window.ServerAppearanceBundle(member.Appearance),
             AppearanceFull: window.ServerAppearanceBundle(member.AppearanceFull || member.Appearance),
-            ArousalSettings: member.ArousalSettings, Event: member.Event
+            ArousalSettings: member.ArousalSettings ? { ...member.ArousalSettings } : undefined,
+            Event: Array.isArray(member.Event) ? member.Event.map(e => ({ ...e })) : []
           };
           if (member.FromPandora != null) record.FromPandora = member.FromPandora;
           return record;
-        });
-        // Do not run PrivateLoadCharacter during another NPC's dialogue:
-        // it can change global dialogue state and trap the player on Leave.
-        // Keep the saved record as a placeholder; PrivateLoad reconstructs it
-        // naturally when the player enters the Private Room.
+        };
+        const record = makeRecord(npc);
+        const now = Number(window.CurrentTime) || Date.now();
+        const entry = record.Event.find(e => e.Name === "PrivateRoomEntry");
+        if (entry) entry.Value = now;
+        else record.Event.push({ Name: "PrivateRoomEntry", Value: now });
+        const serialized = window.PrivateCharacter.slice(1).map(makeRecord).concat(record);
+        // Account update only: do not touch dialogue state or CurrentCharacter.
         window.ServerAccountUpdate.QueueData({ PrivateCharacter: serialized }, true);
-        window.PrivateCharacter.push(serialized[serialized.length - 1]);
+        // A saved record is reconstructed by the game's Private Room loader on entry.
+        window.PrivateCharacter.push(record);
         recruitButton.style.display = "none";
-        window.alert(copy.Name + " was added to your Private Room list. Check your room to confirm.");
+        window.alert(npc.Name + " was saved to your Private Room list. Leave this conversation normally, then visit your room.");
       } catch (error) {
         console.error("[BC-Shit] NPC recruitment failed:", error);
         window.alert("Could not add this NPC to the Private Room.");
