@@ -654,6 +654,21 @@
         window.alert("Enter a whole number from 0 to 100. No changes were saved.");
         return;
       }
+      if (typeof window.NPCEventGet !== "function" || typeof window.NPCEventAdd !== "function") {
+        window.alert("The game's NPC date functions are unavailable. No changes were saved.");
+        return;
+      }
+      const now = Number(window.CurrentTime) || Date.now();
+      const entry = Number(window.NPCEventGet(npc, "PrivateRoomEntry"));
+      const days = entry > 0 ? Math.max(0, Math.floor((now - entry) / 86400000)) : 0;
+      const daysInput = window.prompt("Change days together with this NPC (0 or more):", String(days));
+      if (daysInput === null) return;
+      const newDays = Number(daysInput.trim());
+      if (!daysInput.trim() || !Number.isSafeInteger(newDays) || newDays < 0 || newDays > 36500) {
+        window.alert("Enter a whole number from 0 to 36500. No changes were saved.");
+        return;
+      }
+      window.NPCEventAdd(npc, "PrivateRoomEntry", now - newDays * 86400000);
       for (const change of changes) window.NPCTraitSet(npc, change.name, change.value);
       npc.Love = relation;
       if (typeof window.NPCTraitDialog === "function") window.NPCTraitDialog(npc);
