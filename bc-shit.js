@@ -800,6 +800,21 @@
         copy.Lover = npc.Lover || "";
         if (npc.ArousalSettings) copy.ArousalSettings = { ...npc.ArousalSettings };
         window.NPCEventAdd(copy, "PrivateRoomEntry", Number(window.CurrentTime) || Date.now());
+        // PrivateLoad normally initializes these when entering the room.
+        // Recruited NPCs are inserted while outside it, so initialize them now
+        // rather than requiring a full page reload for working dialogue.
+        if (typeof window.NPCTraitDialog === "function") window.NPCTraitDialog(copy);
+        if (typeof window.NPCArousal === "function") window.NPCArousal(copy);
+        if (copy.ArousalSettings) {
+          copy.ArousalSettings.Active = "Automatic";
+          copy.ArousalSettings.Visible = "All";
+        }
+        if (typeof window.ActivityTimerProgress === "function") window.ActivityTimerProgress(copy, 0);
+        if (typeof window.CharacterRefresh === "function") window.CharacterRefresh(copy);
+        if (typeof window.ReputationGet === "function" && typeof window.NPCTraitGet === "function") {
+          copy.AllowItem = (window.ReputationGet("Dominant") + 25 >= window.NPCTraitGet(copy, "Dominant")) ||
+            copy.IsOwnedByPlayer?.() || copy.IsRestrained?.() || !copy.CanTalk?.();
+        }
         const members = window.PrivateCharacter.slice(1).concat(copy);
         const serialized = members.map(member => {
           const record = {
