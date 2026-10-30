@@ -664,12 +664,8 @@
     window.PrivateDrawCharacter = function (...args) {
       for (const { npc } of cardPositions()) applyNpcName(npc);
       const result = originalPrivateDrawCharacter.apply(this, args);
-      for (const { npc, dressX } of cardPositions()) {
-        if (slaveCollarFor(npc)) window.DrawButton(dressX + 70, 94, 115, 50, "Uncollar", "White", "", "Remove slave collar");
+      for (const { dressX } of cardPositions()) {
         window.DrawButton(dressX, 25, 63, 63, "", "White", "Icons/Dress.png", window.TextGet("Dress"));
-        if (!npc.IsOwnedByPlayer?.() && npc.Owner !== window.Player?.Name) window.DrawButton(dressX + 70, 25, 100, 63, "Enslave", "White", "", "Make NPC your slave");
-        window.DrawButton(dressX + 177, 25, 95, 63, "Traits", "White", "", "Edit NPC traits and relation");
-        window.DrawButton(dressX, 94, 63, 50, "Name", "White", "", "Rename NPC");
       }
       return result;
     };
@@ -677,20 +673,10 @@
     window.PrivateClick = function (...args) {
       if (window.LogQuery("RentRoom", "PrivateRoom")) {
         for (const { npc, dressX } of cardPositions()) {
-          if (window.MouseX < dressX || window.MouseX >= dressX + 272) continue;
-          if (window.MouseY >= 25 && window.MouseY < 88 && window.MouseX >= dressX + 177 && window.MouseX < dressX + 272) { editNpcTraits(npc); return; }
-          if (window.MouseY >= 25 && window.MouseY < 88 && window.MouseX >= dressX + 70 && window.MouseX < dressX + 170) { makeNpcSlave(npc); return; }
-          if (window.MouseY >= 25 && window.MouseY < 88 && window.MouseX < dressX + 63) {
+          if (window.MouseX >= dressX && window.MouseX < dressX + 63 &&
+              window.MouseY >= 25 && window.MouseY < 88) {
             window.PrivateCharacterNewClothes = npc;
             window.CharacterAppearanceLoadCharacter(npc);
-            return;
-          }
-          if (slaveCollarFor(npc) && window.MouseX >= dressX + 70 && window.MouseX < dressX + 185 && window.MouseY >= 94 && window.MouseY < 144) {
-            removeSlaveCollar(npc);
-            return;
-          }
-          if (window.MouseY >= 94 && window.MouseY < 144) {
-            renameNpc(npc);
             return;
           }
         }
@@ -698,10 +684,54 @@
       return originalPrivateClick.apply(this, args);
     };
 
+    // Keep the Private Room uncluttered. NPC actions live in the costume editor.
+    // HTML controls are used so they remain clickable regardless of canvas scaling.
+    const npcTools = document.createElement("div");
+    npcTools.id = "bc-shit-npc-editor-tools";
+    Object.assign(npcTools.style, {
+      position: "fixed", top: "12px", right: "12px", zIndex: "100000",
+      display: "none", gap: "5px", padding: "8px", borderRadius: "8px",
+      background: "rgba(25,25,35,0.94)", border: "1px solid #aaa",
+      fontFamily: "Arial, sans-serif"
+    });
+    const toolButtons = {};
+    for (const [key, label, action] of [
+      ["rename", "Rename", renameNpc],
+      ["collar", "Uncollar", removeSlaveCollar],
+      ["enslave", "Enslave", makeNpcSlave],
+      ["traits", "Traits", editNpcTraits]
+    ]) {
+      const button = document.createElement("button");
+      button.textContent = label;
+      button.type = "button";
+      Object.assign(button.style, { padding: "7px 10px", cursor: "pointer", fontSize: "13px" });
+      button.addEventListener("click", () => {
+        const npc = window.CharacterAppearanceSelection;
+        if (npc && npc.ID !== 0 && window.PrivateCharacterNewClothes === npc) action(npc);
+      });
+      npcTools.appendChild(button);
+      toolButtons[key] = button;
+    }
+    document.body.appendChild(npcTools);
+    const updateNpcTools = () => {
+      const npc = window.CharacterAppearanceSelection;
+      const visible = window.CurrentScreen === "Appearance" && npc &&
+        npc.ID !== 0 && window.PrivateCharacterNewClothes === npc;
+      npcTools.style.display = visible ? "flex" : "none";
+      if (!visible) return;
+      toolButtons.collar.style.display = slaveCollarFor(npc) ? "" : "none";
+      toolButtons.enslave.style.display =
+        npc.IsOwnedByPlayer?.() || npc.Owner === window.Player?.Name || npc.IsOwned?.() ? "none" : "";
+    };
+    const npcToolsInterval = setInterval(updateNpcTools, 200);
+    updateNpcTools();
+
     window.__bcShitNpcDressButtonInstalled = true;
     window.__restoreBCShitNpcDressButton = () => {
       window.PrivateDrawCharacter = originalPrivateDrawCharacter;
       window.PrivateClick = originalPrivateClick;
+      clearInterval(npcToolsInterval);
+      npcTools.remove();
       delete window.__bcShitNpcDressButtonInstalled;
       delete window.__restoreBCShitNpcDressButton;
       console.log("Private Room NPC Dress and Rename buttons removed.");
