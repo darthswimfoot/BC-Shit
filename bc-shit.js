@@ -766,7 +766,7 @@
       const npc = window.CurrentCharacter;
       if (!npc || npc.ID === 0 || !npc.Name || !Array.isArray(npc.Appearance) ||
           window.CurrentScreen === "Private" || window.CurrentScreen === "Appearance" ||
-          window.CurrentScreen !== "Dialog" ||
+          !window.CurrentCharacter || window.CurrentCharacter !== npc ||
           !Array.isArray(window.PrivateCharacter) ||
           window.PrivateCharacter.some(c => c && c.Name === npc.Name)) return null;
       return npc;
