@@ -786,21 +786,31 @@
       if (member.FromPandora != null) record.FromPandora = member.FromPandora;
       return record;
     };
-    const finishRecruit = () => {
-      if (!pendingRecruit || window.CurrentCharacter === pendingRecruit.source) return;
-      const pending = pendingRecruit;
-      pendingRecruit = null;
-      try {
-        if (window.PrivateCharacter.some(c => c && c.Name === pending.record.Name)) return;
-        const serialized = window.PrivateCharacter.slice(1).map(makeRecord).concat(pending.record);
-        window.ServerAccountUpdate.QueueData({ PrivateCharacter: serialized }, true);
-        window.PrivateCharacter.push(pending.record);
-        console.info("[BC-Shit] NPC recruited after dialogue exit:", pending.record.Name);
-      } catch (error) {
-        console.error("[BC-Shit] Deferred NPC recruitment failed:", error);
-        window.alert("Private Room recruitment failed. See browser console.");
-      }
-    };
+    // Only insert saved NPC data when the Private Room's own loader is about
+    // to convert it into a complete live Character. Raw records in the live
+    // list break the game's draw/update loop outside the Private Room.
+    const originalPrivateLoadForRecruit = window.PrivateLoad;
+    if (typeof originalPrivateLoadForRecruit === "function") {
+      window.PrivateLoad = function (...args) {
+        let added = false;
+        if (pendingRecruit &&
+            !window.PrivateCharacter.some(c => c && c.Name === pendingRecruit.record.Name)) {
+          window.PrivateCharacter.push(pendingRecruit.record);
+          added = true;
+        }
+        try {
+          const result = originalPrivateLoadForRecruit.apply(this, args);
+          if (added && typeof window.ServerPrivateCharacterSync === "function")
+            window.ServerPrivateCharacterSync();
+          pendingRecruit = null;
+          return result;
+        } catch (error) {
+          if (added) window.PrivateCharacter.pop();
+          console.error("[BC-Shit] Private Room recruitment load failed:", error);
+          throw error;
+        }
+      };
+    }
     recruitButton.addEventListener("click", () => {
       const npc = recruitCandidate();
       if (!npc || pendingRecruit) return;
@@ -810,7 +820,7 @@
         return;
       }
       if (!window.confirm("Bring " + npc.Name + " to your Private Room?\\n\\n" +
-          "Recruitment will be saved after you leave this conversation.")) return;
+          "Recruitment will complete when you enter your Private Room.")) return;
       try {
         const record = makeRecord(npc);
         const now = Number(window.CurrentTime) || Date.now();
@@ -827,7 +837,6 @@
       }
     });
     const recruitInterval = setInterval(() => {
-      finishRecruit();
       recruitButton.style.display = !pendingRecruit && recruitCandidate() ? "flex" : "none";
     }, 250);
 
@@ -839,6 +848,7 @@
       npcTools.remove();
       clearInterval(recruitInterval);
       recruitButton.remove();
+      if (typeof originalPrivateLoadForRecruit === "function") window.PrivateLoad = originalPrivateLoadForRecruit;
       delete window.__bcShitNpcDressButtonInstalled;
       delete window.__restoreBCShitNpcDressButton;
       console.log("Private Room NPC Dress and Rename buttons removed.");
