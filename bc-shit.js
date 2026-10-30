@@ -741,12 +741,99 @@
     const npcToolsInterval = setInterval(updateNpcTools, 200);
     updateNpcTools();
 
+    // Recruit NPCs encountered outside the Private Room. Do not mutate the
+    // original room's NPC or assume PrivateVendor has been initialized.
+    const recruitButton = document.createElement("button");
+    recruitButton.type = "button";
+    recruitButton.title = "Bring this NPC to your Private Room";
+    recruitButton.setAttribute("aria-label", "Bring NPC to Private Room");
+    recruitButton.id = "bc-shit-recruit-npc";
+    Object.assign(recruitButton.style, {
+      position: "fixed", top: "76px", right: "12px", zIndex: "100000",
+      display: "none", alignItems: "center", gap: "6px", padding: "6px 10px",
+      background: "#f8f8f8", color: "#111", border: "2px solid #555",
+      borderRadius: "7px", cursor: "pointer", fontSize: "13px"
+    });
+    const roomIcon = document.createElement("img");
+    roomIcon.src = "Icons/PrivateRoom.png";
+    roomIcon.alt = "";
+    Object.assign(roomIcon.style, { width: "30px", height: "30px", objectFit: "contain" });
+    roomIcon.onerror = () => { roomIcon.style.display = "none"; };
+    recruitButton.appendChild(roomIcon);
+    recruitButton.appendChild(document.createTextNode("Private Room"));
+    document.body.appendChild(recruitButton);
+    const recruitCandidate = () => {
+      const npc = window.CurrentCharacter;
+      if (!npc || npc.ID === 0 || !npc.Name || !Array.isArray(npc.Appearance) ||
+          window.CurrentScreen === "Private" || window.CurrentScreen === "Appearance" ||
+          window.CurrentScreen !== "Dialog" ||
+          !Array.isArray(window.PrivateCharacter) ||
+          window.PrivateCharacter.some(c => c && c.Name === npc.Name)) return null;
+      return npc;
+    };
+    recruitButton.addEventListener("click", () => {
+      const npc = recruitCandidate();
+      if (!npc) return;
+      if (typeof window.CharacterLoadNPC !== "function" ||
+          typeof window.ServerAppearanceBundle !== "function" ||
+          typeof window.NPCEventAdd !== "function" ||
+          typeof window.ServerAccountUpdate?.QueueData !== "function") {
+        window.alert("Private Room saving functions are not available.");
+        return;
+      }
+      if (!window.confirm("Bring " + npc.Name + " to your Private Room?\\n\\n" +
+          "A copy will be added to your Private Room. The original NPC may remain in this room.")) return;
+      if (window.PrivateCharacter.some(c => c && c.Name === npc.Name)) return;
+      try {
+        const copy = window.CharacterLoadNPC("NPC_Private_Custom");
+        copy.Name = npc.Name;
+        copy.AccountName = "NPC_Private_Custom" + window.PrivateCharacter.length;
+        copy.AssetFamily = npc.AssetFamily || copy.AssetFamily;
+        copy.Appearance = npc.Appearance.slice();
+        copy.AppearanceFull = npc.Appearance.slice();
+        copy.Love = Number.isFinite(npc.Love) ? npc.Love : 0;
+        copy.Title = npc.Title || "";
+        copy.Trait = Array.isArray(npc.Trait) ? npc.Trait.map(t => ({ Name: t.Name, Value: t.Value })) : [];
+        if (!copy.Trait.length && typeof window.NPCTraitGenerate === "function") window.NPCTraitGenerate(copy);
+        copy.Event = Array.isArray(npc.Event) ? npc.Event.map(e => ({ ...e })) : [];
+        copy.Owner = npc.Owner || "";
+        copy.Lover = npc.Lover || "";
+        if (npc.ArousalSettings) copy.ArousalSettings = { ...npc.ArousalSettings };
+        window.NPCEventAdd(copy, "PrivateRoomEntry", Number(window.CurrentTime) || Date.now());
+        const members = window.PrivateCharacter.slice(1).concat(copy);
+        const serialized = members.map(member => {
+          const record = {
+            Name: member.Name, Love: member.Love, Title: member.Title,
+            Trait: member.Trait, Cage: member.Cage, Owner: member.Owner,
+            Lover: member.Lover, AssetFamily: member.AssetFamily,
+            Appearance: window.ServerAppearanceBundle(member.Appearance),
+            AppearanceFull: window.ServerAppearanceBundle(member.AppearanceFull || member.Appearance),
+            ArousalSettings: member.ArousalSettings, Event: member.Event
+          };
+          if (member.FromPandora != null) record.FromPandora = member.FromPandora;
+          return record;
+        });
+        window.ServerAccountUpdate.QueueData({ PrivateCharacter: serialized }, true);
+        window.PrivateCharacter.push(copy);
+        recruitButton.style.display = "none";
+        window.alert(copy.Name + " was added to your Private Room list. Check your room to confirm.");
+      } catch (error) {
+        console.error("[BC-Shit] NPC recruitment failed:", error);
+        window.alert("Could not add this NPC to the Private Room.");
+      }
+    });
+    const recruitInterval = setInterval(() => {
+      recruitButton.style.display = recruitCandidate() ? "flex" : "none";
+    }, 250);
+
     window.__bcShitNpcDressButtonInstalled = true;
     window.__restoreBCShitNpcDressButton = () => {
       window.PrivateDrawCharacter = originalPrivateDrawCharacter;
       window.PrivateClick = originalPrivateClick;
       clearInterval(npcToolsInterval);
       npcTools.remove();
+      clearInterval(recruitInterval);
+      recruitButton.remove();
       delete window.__bcShitNpcDressButtonInstalled;
       delete window.__restoreBCShitNpcDressButton;
       console.log("Private Room NPC Dress and Rename buttons removed.");
