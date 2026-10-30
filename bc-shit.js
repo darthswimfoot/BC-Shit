@@ -762,11 +762,29 @@
     recruitButton.appendChild(roomIcon);
     recruitButton.appendChild(document.createTextNode("Private Room"));
     document.body.appendChild(recruitButton);
+    const roomNpcButtons = new Map();
+    const originalDrawCharacterForRecruit = window.DrawCharacter;
+    if (typeof originalDrawCharacterForRecruit === "function") {
+      window.DrawCharacter = function (character, x, y, zoom, ...rest) {
+        const result = originalDrawCharacterForRecruit.call(this, character, x, y, zoom, ...rest);
+        if (window.CurrentModule === "Room" && window.CurrentScreen !== "Private" &&
+            window.CurrentScreen !== "Appearance" && character && character.ID !== 0 &&
+            character.Name && Array.isArray(character.Appearance) &&
+            !window.PrivateCharacter.some(c => c && c.Name === character.Name) &&
+            typeof window.DrawButton === "function") {
+          const bx = Math.max(0, Math.min(1900, Number(x) + 350 * (Number(zoom) || 1)));
+          const by = Math.max(0, Number(y) + 20);
+          const key = String(character.ID) + ":" + character.Name;
+          roomNpcButtons.set(key, { character, x: bx, y: by, seen: Date.now() });
+          window.DrawButton(bx, by, 70, 70, "", "White", "Icons/Private.png", "Bring to Private Room");
+        }
+        return result;
+      };
+    }
     const recruitCandidate = () => {
       const npc = window.CurrentCharacter;
       if (!npc || npc.ID === 0 || !npc.Name || !Array.isArray(npc.Appearance) ||
           window.CurrentScreen === "Private" || window.CurrentScreen === "Appearance" ||
-          !window.CurrentCharacter || window.CurrentCharacter !== npc ||
           !Array.isArray(window.PrivateCharacter) ||
           window.PrivateCharacter.some(c => c && c.Name === npc.Name)) return null;
       return npc;
@@ -826,8 +844,7 @@
         return result;
       };
     }
-    recruitButton.addEventListener("click", () => {
-      const npc = recruitCandidate();
+    const requestRecruit = npc => {
       if (!npc || pendingRecruit) return;
       if (typeof window.ServerAppearanceBundle !== "function" ||
           typeof window.ServerAccountUpdate?.QueueData !== "function") {
@@ -850,9 +867,28 @@
         console.error("[BC-Shit] Could not prepare NPC recruitment:", error);
         window.alert("Could not prepare NPC recruitment.");
       }
-    });
+    };
+    const onRecruitCanvasClick = event => {
+      if (window.CurrentModule !== "Room" || window.CurrentScreen === "Private" ||
+          window.CurrentScreen === "Appearance") return;
+      const canvas = event.target;
+      if (!(canvas instanceof HTMLCanvasElement)) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = (event.clientX - rect.left) * 2000 / rect.width;
+      const my = (event.clientY - rect.top) * 1000 / rect.height;
+      for (const button of roomNpcButtons.values()) {
+        if (Date.now() - button.seen > 500) continue;
+        if (mx >= button.x && mx <= button.x + 70 && my >= button.y && my <= button.y + 70) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          requestRecruit(button.character);
+          return;
+        }
+      }
+    };
+    document.addEventListener("click", onRecruitCanvasClick, true);
     const recruitInterval = setInterval(() => {
-      recruitButton.style.display = !pendingRecruit && recruitCandidate() ? "flex" : "none";
+      recruitButton.style.display = "none";
     }, 250);
 
     window.__bcShitNpcDressButtonInstalled = true;
@@ -863,6 +899,8 @@
       npcTools.remove();
       clearInterval(recruitInterval);
       recruitButton.remove();
+      document.removeEventListener("click", onRecruitCanvasClick, true);
+      if (typeof originalDrawCharacterForRecruit === "function") window.DrawCharacter = originalDrawCharacterForRecruit;
       if (typeof originalPrivateLoadForRecruit === "function") window.PrivateLoad = originalPrivateLoadForRecruit;
       delete window.__bcShitNpcDressButtonInstalled;
       delete window.__restoreBCShitNpcDressButton;
