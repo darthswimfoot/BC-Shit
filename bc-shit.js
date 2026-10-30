@@ -771,54 +771,64 @@
           window.PrivateCharacter.some(c => c && c.Name === npc.Name)) return null;
       return npc;
     };
+    let pendingRecruit = null;
+    const makeRecord = member => {
+      const record = {
+        Name: member.Name, Love: member.Love ?? 0, Title: member.Title || "",
+        Trait: Array.isArray(member.Trait) ? member.Trait.map(t => ({ ...t })) : [],
+        Cage: member.Cage, Owner: member.Owner, Lover: member.Lover,
+        AssetFamily: member.AssetFamily,
+        Appearance: window.ServerAppearanceBundle(member.Appearance),
+        AppearanceFull: window.ServerAppearanceBundle(member.AppearanceFull || member.Appearance),
+        ArousalSettings: member.ArousalSettings ? { ...member.ArousalSettings } : undefined,
+        Event: Array.isArray(member.Event) ? member.Event.map(e => ({ ...e })) : []
+      };
+      if (member.FromPandora != null) record.FromPandora = member.FromPandora;
+      return record;
+    };
+    const finishRecruit = () => {
+      if (!pendingRecruit || window.CurrentCharacter === pendingRecruit.source) return;
+      const pending = pendingRecruit;
+      pendingRecruit = null;
+      try {
+        if (window.PrivateCharacter.some(c => c && c.Name === pending.record.Name)) return;
+        const serialized = window.PrivateCharacter.slice(1).map(makeRecord).concat(pending.record);
+        window.ServerAccountUpdate.QueueData({ PrivateCharacter: serialized }, true);
+        window.PrivateCharacter.push(pending.record);
+        console.info("[BC-Shit] NPC recruited after dialogue exit:", pending.record.Name);
+      } catch (error) {
+        console.error("[BC-Shit] Deferred NPC recruitment failed:", error);
+        window.alert("Private Room recruitment failed. See browser console.");
+      }
+    };
     recruitButton.addEventListener("click", () => {
       const npc = recruitCandidate();
-      if (!npc) return;
+      if (!npc || pendingRecruit) return;
       if (typeof window.ServerAppearanceBundle !== "function" ||
           typeof window.ServerAccountUpdate?.QueueData !== "function") {
         window.alert("Private Room saving functions are not available.");
         return;
       }
       if (!window.confirm("Bring " + npc.Name + " to your Private Room?\\n\\n" +
-          "A copy will be added to your Private Room. The original NPC may remain in this room.")) return;
-      if (window.PrivateCharacter.some(c => c && c.Name === npc.Name)) return;
+          "Recruitment will be saved after you leave this conversation.")) return;
       try {
-        // Serialize the source NPC directly. Creating a new live NPC or calling
-        // NPC dialogue/trait loaders while another conversation is active can
-        // disrupt that conversation's stage and Leave behavior.
-        const makeRecord = member => {
-          const record = {
-            Name: member.Name, Love: member.Love ?? 0, Title: member.Title || "",
-            Trait: Array.isArray(member.Trait) ? member.Trait.map(t => ({ ...t })) : [],
-            Cage: member.Cage, Owner: member.Owner, Lover: member.Lover,
-            AssetFamily: member.AssetFamily,
-            Appearance: window.ServerAppearanceBundle(member.Appearance),
-            AppearanceFull: window.ServerAppearanceBundle(member.AppearanceFull || member.Appearance),
-            ArousalSettings: member.ArousalSettings ? { ...member.ArousalSettings } : undefined,
-            Event: Array.isArray(member.Event) ? member.Event.map(e => ({ ...e })) : []
-          };
-          if (member.FromPandora != null) record.FromPandora = member.FromPandora;
-          return record;
-        };
         const record = makeRecord(npc);
         const now = Number(window.CurrentTime) || Date.now();
         const entry = record.Event.find(e => e.Name === "PrivateRoomEntry");
         if (entry) entry.Value = now;
         else record.Event.push({ Name: "PrivateRoomEntry", Value: now });
-        const serialized = window.PrivateCharacter.slice(1).map(makeRecord).concat(record);
-        // Account update only: do not touch dialogue state or CurrentCharacter.
-        window.ServerAccountUpdate.QueueData({ PrivateCharacter: serialized }, true);
-        // A saved record is reconstructed by the game's Private Room loader on entry.
-        window.PrivateCharacter.push(record);
+        pendingRecruit = { source: npc, record };
         recruitButton.style.display = "none";
-        window.alert(npc.Name + " was saved to your Private Room list. Leave this conversation normally, then visit your room.");
+        // No server writes, PrivateCharacter changes, or NPC initialization
+        // while the originating dialogue is still active.
       } catch (error) {
-        console.error("[BC-Shit] NPC recruitment failed:", error);
-        window.alert("Could not add this NPC to the Private Room.");
+        console.error("[BC-Shit] Could not prepare NPC recruitment:", error);
+        window.alert("Could not prepare NPC recruitment.");
       }
     });
     const recruitInterval = setInterval(() => {
-      recruitButton.style.display = recruitCandidate() ? "flex" : "none";
+      finishRecruit();
+      recruitButton.style.display = !pendingRecruit && recruitCandidate() ? "flex" : "none";
     }, 250);
 
     window.__bcShitNpcDressButtonInstalled = true;
