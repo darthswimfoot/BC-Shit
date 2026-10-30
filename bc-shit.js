@@ -828,8 +828,22 @@
           if (member.FromPandora != null) record.FromPandora = member.FromPandora;
           return record;
         });
+        // The game's PrivateLoadCharacter creates dialogue and stages from a
+        // saved NPC record. A live CharacterLoadNPC instance bypasses that
+        // reconstruction, which causes empty/unclosable dialogue until reload.
+        if (typeof window.PrivateLoadCharacter !== "function") {
+          window.alert("The game's Private Room NPC loader is unavailable. No NPC was added.");
+          return;
+        }
+        const newIndex = window.PrivateCharacter.length;
+        window.PrivateCharacter.push(serialized[serialized.length - 1]);
+        try {
+          window.PrivateLoadCharacter(newIndex);
+        } catch (error) {
+          window.PrivateCharacter.splice(newIndex, 1);
+          throw error;
+        }
         window.ServerAccountUpdate.QueueData({ PrivateCharacter: serialized }, true);
-        window.PrivateCharacter.push(copy);
         recruitButton.style.display = "none";
         window.alert(copy.Name + " was added to your Private Room list. Check your room to confirm.");
       } catch (error) {
