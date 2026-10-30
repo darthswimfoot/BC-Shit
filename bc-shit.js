@@ -617,38 +617,48 @@
     };
     const editNpcTraits = npc => {
       if (!Array.isArray(npc.Trait) || typeof window.NPCTraitSet !== "function" ||
-          typeof window.ServerPrivateCharacterSync !== "function") {
+          typeof window.NPCTraitGet !== "function" || typeof window.ServerPrivateCharacterSync !== "function") {
         window.alert("The game's NPC trait editor/save functions are unavailable.");
         return;
       }
-      // The game stores named positive traits; their opposites are separate names.
-      // Editing an existing entry retains that trait's exact game-supported name.
-      const entries = npc.Trait.map(t => ({ Name: t.Name, Value: t.Value }));
-      entries.push({ Name: "Relation", Value: npc.Love ?? 0 });
-      const choice = window.prompt("Edit " + npc.Name + "'s traits:\\n" +
-        entries.map((t, i) => (i + 1) + ". " + t.Name + ": " + t.Value).join("\\n") +
-        "\\n\\nEnter a number to edit, or Cancel to close:", "1");
-      if (choice === null) return;
-      const index = Number(choice) - 1;
-      if (!Number.isInteger(index) || index < 0 || index >= entries.length) {
-        window.alert("Choose a listed trait number.");
+      // Positive values favor the first name, negative values favor its opposite.
+      // Dominant is positive; Submissive is negative, as in the game's trait system.
+      const axes = [
+        ["Peaceful", "Violent"],
+        ["Frigid", "Horny"],
+        ["Wise", "Dumb"],
+        ["Playful", "Serious"],
+        ["Dominant", "Submissive"]
+      ];
+      const changes = [];
+      for (const [positive, negative] of axes) {
+        const current = window.NPCTraitGet(npc, positive);
+        const input = window.prompt(
+          "Change trait " + positive + "/" + negative + " (-100 to 100):\\n" +
+          "Positive = " + positive + ", negative = " + negative + ".\\n" +
+          "Current: " + current,
+          String(current)
+        );
+        if (input === null) return;
+        const value = Number(input.trim());
+        if (!input.trim() || !Number.isInteger(value) || value < -100 || value > 100) {
+          window.alert("Enter a whole number from -100 to 100. No changes were saved.");
+          return;
+        }
+        changes.push({ name: value < 0 ? negative : positive, value: Math.abs(value) });
+      }
+      const relationInput = window.prompt("Change Relation (0 to 100):", String(npc.Love ?? 0));
+      if (relationInput === null) return;
+      const relation = Number(relationInput.trim());
+      if (!relationInput.trim() || !Number.isInteger(relation) || relation < 0 || relation > 100) {
+        window.alert("Enter a whole number from 0 to 100. No changes were saved.");
         return;
       }
-      const selected = entries[index];
-      const input = window.prompt("Set " + selected.Name + " (0–100):", String(selected.Value));
-      if (input === null) return;
-      const value = Number(input.trim());
-      if (!input.trim() || !Number.isInteger(value) || value < 0 || value > 100) {
-        window.alert("Enter a whole number from 0 to 100.");
-        return;
-      }
-      if (selected.Name === "Relation") npc.Love = value;
-      else window.NPCTraitSet(npc, selected.Name, value);
+      for (const change of changes) window.NPCTraitSet(npc, change.name, change.value);
+      npc.Love = relation;
       if (typeof window.NPCTraitDialog === "function") window.NPCTraitDialog(npc);
       npc.MustDraw = true;
       window.ServerPrivateCharacterSync();
-      // Reopen so multiple values can be edited without leaving the NPC card.
-      editNpcTraits(npc);
     };
 
     window.PrivateDrawCharacter = function (...args) {
