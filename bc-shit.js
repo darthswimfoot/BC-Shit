@@ -215,7 +215,6 @@
         const mappedUrl = mapImageUrl(url);
         const entry = originalCacheGet.call(this, mappedUrl, ...args);
         if (mappedUrl !== url) {
-          console.log("[BC-Shit Togruta] redirected " + cacheName, { requested: url, mapped: mappedUrl });
           redrawAfterTextureReady(entry, mappedUrl);
         }
         return entry;
@@ -228,7 +227,6 @@
       originalGlLoadImage = window.GLDrawLoadImage;
       window.GLDrawLoadImage = function (gl, url, ...args) {
         const mappedUrl = mapImageUrl(url);
-        if (mappedUrl !== url) console.log("[BC-Shit Togruta] redirected GLDrawLoadImage", { requested: url, mapped: mappedUrl });
         return originalGlLoadImage.call(this, gl, mappedUrl, ...args);
       };
       console.log("[BC-Shit Togruta] hooked GLDrawLoadImage");
