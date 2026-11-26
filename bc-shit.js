@@ -95,7 +95,7 @@
       const context = canvas.getContext("2d");
       if (!context) throw new Error("2D canvas context unavailable");
       context.translate(pivotX, pivotY);
-      context.rotate(Math.PI / 2); // Positive canvas rotation is clockwise.
+      context.rotate(Math.PI / 4); // Positive canvas rotation is clockwise (45 degrees).
       context.translate(-pivotX, -pivotY);
       context.drawImage(bitmap, 0, 0);
       return canvas.toDataURL("image/png");
