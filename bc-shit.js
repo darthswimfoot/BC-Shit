@@ -69,6 +69,51 @@
     alert("Togruta head-tails: no usable HairFront or HairBack template was found.");
     return;
   }
+
+  // Experimental in-game sprite rotation test. The test asset uses the three
+  // uploaded PNGs as separate native UpperBody layers. Test2/Test3 are rotated
+  // around their own source-image pivots, without changing the character pose.
+  const rotationTestAssetName = "BCShitRotationTest";
+  const rotationTestSources = {
+    main: textureRoot + "test1.png",
+    test2: textureRoot + "Test2.png",
+    test3: textureRoot + "Test3.png"
+  };
+  let rotationTestEnabled = false;
+  let rotationTestRotated = { test2: null, test3: null };
+  async function makePivotRotatedTexture(url, pivotX, pivotY) {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error("HTTP " + response.status + " loading " + url);
+    const bitmap = await createImageBitmap(await response.blob());
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("2D canvas context unavailable");
+      context.translate(pivotX, pivotY);
+      context.rotate(Math.PI / 2); // Positive canvas rotation is clockwise.
+      context.translate(-pivotX, -pivotY);
+      context.drawImage(bitmap, 0, 0);
+      return canvas.toDataURL("image/png");
+    } finally {
+      bitmap.close?.();
+    }
+  }
+  try {
+    const [test2, test3] = await Promise.all([
+      makePivotRotatedTexture(rotationTestSources.test2, 173, 80),
+      makePivotRotatedTexture(rotationTestSources.test3, 327, 80)
+    ]);
+    rotationTestRotated = { test2, test3 };
+    console.info("[BC-Shit Rotation Test] rotated sprite textures prepared", {
+      test2Pivot: [173, 80], test3Pivot: [327, 80]
+    });
+  } catch (error) {
+    console.error("[BC-Shit Rotation Test] could not prepare rotated sprites", error);
+    alert("Rotation test: could not prepare Test2/Test3 textures. Check the console.");
+  }
+
   const mapImageUrl = url => {
     if (typeof url !== "string") return url;
     const path = url.split("?")[0];
@@ -81,6 +126,17 @@
     // URL builders in the game and cache may normalize asset-name casing.
     // Compare case-insensitively so the first uncached request is redirected too.
     const lowerPath = path.toLowerCase();
+    if (lowerPath.includes(rotationTestAssetName.toLowerCase())) {
+      if (lowerPath.includes("test2")) {
+        return rotationTestEnabled && rotationTestRotated.test2
+          ? rotationTestRotated.test2 : rotationTestSources.test2;
+      }
+      if (lowerPath.includes("test3")) {
+        return rotationTestEnabled && rotationTestRotated.test3
+          ? rotationTestRotated.test3 : rotationTestSources.test3;
+      }
+      return rotationTestSources.main;
+    }
     if (lowerPath.includes(itemName.toLowerCase())) {
       return lowerPath.includes("stripes") ? stripeSourceTexture : sourceTexture;
     }
@@ -299,6 +355,85 @@
     console.error("Togruta head-tails registration failed:", error);
     alert("Could not register Togruta head-tails. Check the browser console.");
     return;
+  }
+
+
+  // Register a disposable test item in UpperBody. It leaves Small_Black and
+  // all existing assets untouched; equip this item to see Test1 with Test2/3.
+  let rotationTestAsset = null;
+  try {
+    const upperBodyGroupDef = window.AssetFemale3DCG?.find(g => g.Group === "UpperBody");
+    const upperBodyGroup = window.AssetGroupGet?.("Female3DCG", "UpperBody");
+    const smallBlackEntry = upperBodyGroupDef?.Asset?.find(a =>
+      (typeof a === "string" && a === "Small_Black") ||
+      (a && typeof a === "object" && a.Name === "Small_Black")
+    );
+    const smallBlackBase = typeof smallBlackEntry === "string"
+      ? { Name: smallBlackEntry } : smallBlackEntry;
+    if (!upperBodyGroupDef || !upperBodyGroup || !smallBlackBase) {
+      throw new Error("UpperBody/Small_Black template unavailable");
+    }
+    if (!window.AssetGet("Female3DCG", "UpperBody", rotationTestAssetName)) {
+      window.AssetAdd(upperBodyGroup, {
+        ...smallBlackBase,
+        Name: rotationTestAssetName,
+        Description: "Rotation Test (Test1 + Test2 + Test3)",
+        DescriptionPlural: "Rotation Test",
+        Priority: 999999,
+        LayerPriority: 999999,
+        DefaultColor: ["#FFFFFF", "#FFFFFF", "#FFFFFF"],
+        Layer: [
+          { Name: "Main", Priority: 999997 },
+          { Name: "Test2", Priority: 999998 },
+          { Name: "Test3", Priority: 999999 }
+        ]
+      }, window.AssetFemale3DCGExtended, upperBodyGroupDef);
+    }
+    rotationTestAsset = window.AssetGet("Female3DCG", "UpperBody", rotationTestAssetName);
+    if (rotationTestAsset) {
+      rotationTestAsset.Description = "Rotation Test (Test1 + Test2 + Test3)";
+      rotationTestAsset.DescriptionPlural = "Rotation Test";
+      rotationTestAsset.Priority = 999999;
+      rotationTestAsset.LayerPriority = 999999;
+    }
+  } catch (error) {
+    console.error("[BC-Shit Rotation Test] asset registration failed", error);
+    alert("Rotation test asset could not be registered. Check the console.");
+  }
+
+  // This toggle swaps the two overlay texture URLs between their original PNGs
+  // and pivot-rotated data URLs, then asks the game's own renderer to redraw.
+  if (!document.getElementById("bc-shit-test-rotation")) {
+    const rotationButton = document.createElement("button");
+    rotationButton.id = "bc-shit-test-rotation";
+    rotationButton.type = "button";
+    rotationButton.textContent = "Test Rotation: OFF";
+    Object.assign(rotationButton.style, {
+      position: "fixed", top: "12px", left: "12px", zIndex: "100001",
+      padding: "8px 12px", border: "2px solid #777", borderRadius: "7px",
+      background: "#222", color: "#fff", font: "bold 13px Arial, sans-serif",
+      cursor: "pointer"
+    });
+    rotationButton.addEventListener("click", () => {
+      if (!rotationTestRotated.test2 || !rotationTestRotated.test3) {
+        alert("Rotated textures are not ready; check the browser console.");
+        return;
+      }
+      rotationTestEnabled = !rotationTestEnabled;
+      rotationButton.textContent = "Test Rotation: " + (rotationTestEnabled ? "ON" : "OFF");
+      try {
+        if (window.Player) window.Player.MustDraw = true;
+        if (typeof window.CharacterLoadCanvasAll === "function") window.CharacterLoadCanvasAll();
+        else if (window.Player && typeof window.CharacterRefresh === "function")
+          window.CharacterRefresh(window.Player, false);
+      } catch (error) {
+        console.error("[BC-Shit Rotation Test] redraw failed", error);
+      }
+      console.info("[BC-Shit Rotation Test] sprite rotation " +
+        (rotationTestEnabled ? "enabled" : "disabled"));
+    });
+    document.body.appendChild(rotationButton);
+    restores.push(() => rotationButton.remove());
   }
 
   // Set the registered asset's display description directly as well as
