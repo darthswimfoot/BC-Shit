@@ -361,21 +361,21 @@
   }
 
 
-  // Bondage Club calls this group BodyUpper (not UpperBody) in its
-  // Female3DCG asset definitions. Use Small_Black as the exact template.
+  // R133's BodyUpper group contains "Small" (not "Small_Black").
+  // Use the game's actual Small asset as the template for this test asset.
   let rotationTestAsset = null;
   try {
     const upperBodyGroupName = "BodyUpper";
     const upperBodyGroupDef = window.AssetFemale3DCG?.find(g => g.Group === upperBodyGroupName);
     const upperBodyGroup = window.AssetGroupGet?.("Female3DCG", upperBodyGroupName);
-    const smallBlackEntry = upperBodyGroupDef?.Asset?.find(a =>
-      (typeof a === "string" && a === "Small_Black") ||
-      (a && typeof a === "object" && a.Name === "Small_Black")
+    const smallEntry = upperBodyGroupDef?.Asset?.find(a =>
+      (typeof a === "string" && a === "Small") ||
+      (a && typeof a === "object" && a.Name === "Small")
     );
-    const runtimeSmallBlack = window.AssetGet?.("Female3DCG", upperBodyGroupName, "Small_Black");
-    const smallBlackBase = typeof smallBlackEntry === "string"
-      ? { Name: smallBlackEntry } : (smallBlackEntry || runtimeSmallBlack);
-    if (!upperBodyGroupDef || !upperBodyGroup || !smallBlackBase) {
+    const runtimeSmall = window.AssetGet?.("Female3DCG", upperBodyGroupName, "Small");
+    const smallBase = typeof smallEntry === "string"
+      ? { Name: smallEntry } : (smallEntry || runtimeSmall);
+    if (!upperBodyGroupDef || !upperBodyGroup || !smallBase) {
       const groupNames = (window.AssetFemale3DCG || []).map(g => g.Group).filter(Boolean);
       const availableAssets = upperBodyGroupDef?.Asset?.slice(0, 40).map(a =>
         typeof a === "string" ? a : a?.Name
@@ -383,16 +383,16 @@
       console.error("[BC-Shit Rotation Test] BodyUpper template lookup details", {
         groupDefinitionFound: !!upperBodyGroupDef,
         runtimeGroupFound: !!upperBodyGroup,
-        Small_BlackFoundInRawDefinition: !!smallBlackEntry,
-        Small_BlackFoundAtRuntime: !!runtimeSmallBlack,
+        SmallFoundInRawDefinition: !!smallEntry,
+        SmallFoundAtRuntime: !!runtimeSmall,
         relatedGroups: groupNames.filter(name => /upper|body/i.test(name)),
         sampleBodyUpperAssets: availableAssets
       });
-      throw new Error("BodyUpper/Small_Black template unavailable; see lookup details above");
+      throw new Error("BodyUpper/Small template unavailable; see lookup details above");
     }
     if (!window.AssetGet("Female3DCG", upperBodyGroupName, rotationTestAssetName)) {
       window.AssetAdd(upperBodyGroup, {
-        ...smallBlackBase,
+        ...smallBase,
         Name: rotationTestAssetName,
         Description: "Rotation Test (Test1 + Test2 + Test3)",
         DescriptionPlural: "Rotation Test",
