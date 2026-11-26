@@ -130,9 +130,15 @@
     // URL builders in the game and cache may normalize asset-name casing.
     // Compare case-insensitively so the first uncached request is redirected too.
     const lowerPath = path.toLowerCase();
-    if (lowerPath.includes(rotationTestAssetName.toLowerCase())) {
-      const layer = lowerPath.includes("test2") ? "test2"
-        : lowerPath.includes("test3") ? "test3" : "main";
+    // Only redirect the three dedicated BodyUpper test textures. Other assets
+    // may include this item's name in their parent-item suffix; those paths
+    // must remain untouched.
+    const rotationMatch = lowerPath.match(
+      /\/bodyupper\/bcshitrotationtest_[^/]*_(main|test2|test3)\.png$/
+    );
+    if (rotationMatch) {
+      const layer = rotationMatch[1] === "test2" ? "test2"
+        : rotationMatch[1] === "test3" ? "test3" : "main";
       if (!rotationTestLoggedPaths.has(path)) {
         rotationTestLoggedPaths.add(path);
         console.info("[BC-Shit Rotation Test] texture route", {
