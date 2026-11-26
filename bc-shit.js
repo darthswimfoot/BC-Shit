@@ -130,7 +130,6 @@
     // Compare case-insensitively so the first uncached request is redirected too.
     const lowerPath = path.toLowerCase();
     if (lowerPath.includes(rotationTestAssetName.toLowerCase())) {
-      console.debug("[BC-Shit Rotation Test] texture URL requested", path);
       if (lowerPath.includes("test2")) {
         return rotationTestEnabled && rotationTestRotated.test2
           ? rotationTestRotated.test2 : rotationTestSources.test2;
@@ -139,7 +138,6 @@
         return rotationTestEnabled && rotationTestRotated.test3
           ? rotationTestRotated.test3 : rotationTestSources.test3;
       }
-      console.warn("[BC-Shit Rotation Test] asset texture URL did not identify a layer; using Test1", path);
       return rotationTestSources.main;
     }
     if (lowerPath.includes(itemName.toLowerCase())) {
@@ -363,38 +361,20 @@
   }
 
 
-  // R133's BodyUpper group contains "Small" (not "Small_Black").
-  // Use the game's actual Small asset as the template for this test asset.
+  // Register a clean BodyUpper overlay asset without inheriting another asset's dynamic image groups.
   let rotationTestAsset = null;
   try {
     const upperBodyGroupName = "BodyUpper";
     const upperBodyGroupDef = window.AssetFemale3DCG?.find(g => g.Group === upperBodyGroupName);
     const upperBodyGroup = window.AssetGroupGet?.("Female3DCG", upperBodyGroupName);
-    const smallEntry = upperBodyGroupDef?.Asset?.find(a =>
-      (typeof a === "string" && a === "Small") ||
-      (a && typeof a === "object" && a.Name === "Small")
-    );
-    const runtimeSmall = window.AssetGet?.("Female3DCG", upperBodyGroupName, "Small");
-    const smallBase = typeof smallEntry === "string"
-      ? { Name: smallEntry } : (smallEntry || runtimeSmall);
-    if (!upperBodyGroupDef || !upperBodyGroup || !smallBase) {
-      const groupNames = (window.AssetFemale3DCG || []).map(g => g.Group).filter(Boolean);
-      const availableAssets = upperBodyGroupDef?.Asset?.slice(0, 40).map(a =>
-        typeof a === "string" ? a : a?.Name
-      );
-      console.error("[BC-Shit Rotation Test] BodyUpper template lookup details", {
-        groupDefinitionFound: !!upperBodyGroupDef,
-        runtimeGroupFound: !!upperBodyGroup,
-        SmallFoundInRawDefinition: !!smallEntry,
-        SmallFoundAtRuntime: !!runtimeSmall,
-        relatedGroups: groupNames.filter(name => /upper|body/i.test(name)),
-        sampleBodyUpperAssets: availableAssets
-      });
-      throw new Error("BodyUpper/Small template unavailable; see lookup details above");
+    if (!upperBodyGroupDef || !upperBodyGroup) {
+      throw new Error("BodyUpper asset group unavailable");
     }
     if (!window.AssetGet("Female3DCG", upperBodyGroupName, rotationTestAssetName)) {
+      // Start from a clean definition. Copying BodyUpper/Small also copies its
+      // dynamic image-group metadata (Nipples/HandsLeft/HandsRight), which
+      // redirects this unrelated test asset to the wrong texture paths.
       window.AssetAdd(upperBodyGroup, {
-        ...smallBase,
         Name: rotationTestAssetName,
         Description: "Rotation Test (Test1 + Test2 + Test3)",
         DescriptionPlural: "Rotation Test",
