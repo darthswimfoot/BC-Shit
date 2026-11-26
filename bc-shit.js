@@ -130,6 +130,7 @@
     // Compare case-insensitively so the first uncached request is redirected too.
     const lowerPath = path.toLowerCase();
     if (lowerPath.includes(rotationTestAssetName.toLowerCase())) {
+      console.debug("[BC-Shit Rotation Test] texture URL requested", path);
       if (lowerPath.includes("test2")) {
         return rotationTestEnabled && rotationTestRotated.test2
           ? rotationTestRotated.test2 : rotationTestSources.test2;
@@ -138,6 +139,7 @@
         return rotationTestEnabled && rotationTestRotated.test3
           ? rotationTestRotated.test3 : rotationTestSources.test3;
       }
+      console.warn("[BC-Shit Rotation Test] asset texture URL did not identify a layer; using Test1", path);
       return rotationTestSources.main;
     }
     if (lowerPath.includes(itemName.toLowerCase())) {
@@ -408,6 +410,14 @@
     }
     rotationTestAsset = window.AssetGet("Female3DCG", upperBodyGroupName, rotationTestAssetName);
     if (rotationTestAsset) {
+      console.info("[BC-Shit Rotation Test] registered layer definitions", {
+        assetName: rotationTestAsset.Name,
+        layers: rotationTestAsset.Layer?.map(layer => ({
+          name: layer.Name, hasImage: layer.HasImage, priority: layer.Priority,
+          hasColor: !!layer.Color
+        })),
+        assetGroup: rotationTestAsset.Group?.Name
+      });
       rotationTestAsset.Description = "Rotation Test (Test1 + Test2 + Test3)";
       rotationTestAsset.DescriptionPlural = "Rotation Test";
       rotationTestAsset.Priority = 999999;
