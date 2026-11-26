@@ -74,10 +74,13 @@
   // uploaded PNGs as separate native UpperBody layers. Test2/Test3 are rotated
   // around their own source-image pivots, without changing the character pose.
   const rotationTestAssetName = "BCShitRotationTest";
+  // These test sprites were uploaded in this commit; the Togruta textureCommit
+  // above intentionally points at an older commit which does not contain them.
+  const rotationTestTextureRoot = "https://cdn.jsdelivr.net/gh/darthswimfoot/BC-Shit@fd4ce0e29022ed36f5ba7e8d0efa07e40822315d/";
   const rotationTestSources = {
-    main: textureRoot + "test1.png",
-    test2: textureRoot + "Test2.png",
-    test3: textureRoot + "Test3.png"
+    main: rotationTestTextureRoot + "test1.png",
+    test2: rotationTestTextureRoot + "Test2.png",
+    test3: rotationTestTextureRoot + "Test3.png"
   };
   let rotationTestEnabled = false;
   let rotationTestRotated = { test2: null, test3: null };
@@ -358,22 +361,36 @@
   }
 
 
-  // Register a disposable test item in UpperBody. It leaves Small_Black and
-  // all existing assets untouched; equip this item to see Test1 with Test2/3.
+  // Bondage Club calls this group BodyUpper (not UpperBody) in its
+  // Female3DCG asset definitions. Use Small_Black as the exact template.
   let rotationTestAsset = null;
   try {
-    const upperBodyGroupDef = window.AssetFemale3DCG?.find(g => g.Group === "UpperBody");
-    const upperBodyGroup = window.AssetGroupGet?.("Female3DCG", "UpperBody");
+    const upperBodyGroupName = "BodyUpper";
+    const upperBodyGroupDef = window.AssetFemale3DCG?.find(g => g.Group === upperBodyGroupName);
+    const upperBodyGroup = window.AssetGroupGet?.("Female3DCG", upperBodyGroupName);
     const smallBlackEntry = upperBodyGroupDef?.Asset?.find(a =>
       (typeof a === "string" && a === "Small_Black") ||
       (a && typeof a === "object" && a.Name === "Small_Black")
     );
+    const runtimeSmallBlack = window.AssetGet?.("Female3DCG", upperBodyGroupName, "Small_Black");
     const smallBlackBase = typeof smallBlackEntry === "string"
-      ? { Name: smallBlackEntry } : smallBlackEntry;
+      ? { Name: smallBlackEntry } : (smallBlackEntry || runtimeSmallBlack);
     if (!upperBodyGroupDef || !upperBodyGroup || !smallBlackBase) {
-      throw new Error("UpperBody/Small_Black template unavailable");
+      const groupNames = (window.AssetFemale3DCG || []).map(g => g.Group).filter(Boolean);
+      const availableAssets = upperBodyGroupDef?.Asset?.slice(0, 40).map(a =>
+        typeof a === "string" ? a : a?.Name
+      );
+      console.error("[BC-Shit Rotation Test] BodyUpper template lookup details", {
+        groupDefinitionFound: !!upperBodyGroupDef,
+        runtimeGroupFound: !!upperBodyGroup,
+        Small_BlackFoundInRawDefinition: !!smallBlackEntry,
+        Small_BlackFoundAtRuntime: !!runtimeSmallBlack,
+        relatedGroups: groupNames.filter(name => /upper|body/i.test(name)),
+        sampleBodyUpperAssets: availableAssets
+      });
+      throw new Error("BodyUpper/Small_Black template unavailable; see lookup details above");
     }
-    if (!window.AssetGet("Female3DCG", "UpperBody", rotationTestAssetName)) {
+    if (!window.AssetGet("Female3DCG", upperBodyGroupName, rotationTestAssetName)) {
       window.AssetAdd(upperBodyGroup, {
         ...smallBlackBase,
         Name: rotationTestAssetName,
@@ -389,16 +406,18 @@
         ]
       }, window.AssetFemale3DCGExtended, upperBodyGroupDef);
     }
-    rotationTestAsset = window.AssetGet("Female3DCG", "UpperBody", rotationTestAssetName);
+    rotationTestAsset = window.AssetGet("Female3DCG", upperBodyGroupName, rotationTestAssetName);
     if (rotationTestAsset) {
       rotationTestAsset.Description = "Rotation Test (Test1 + Test2 + Test3)";
       rotationTestAsset.DescriptionPlural = "Rotation Test";
       rotationTestAsset.Priority = 999999;
       rotationTestAsset.LayerPriority = 999999;
+    } else {
+      throw new Error("AssetAdd completed but AssetGet could not find " + rotationTestAssetName);
     }
   } catch (error) {
     console.error("[BC-Shit Rotation Test] asset registration failed", error);
-    alert("Rotation test asset could not be registered. Check the console.");
+    alert("Rotation test asset could not be registered. Check the console for the BodyUpper lookup details.");
   }
 
   // This toggle swaps the two overlay texture URLs between their original PNGs
