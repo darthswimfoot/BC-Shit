@@ -117,6 +117,7 @@
     alert("Rotation test: could not prepare Test2/Test3 textures. Check the console.");
   }
 
+  const rotationTestLoggedPaths = new Set();
   const mapImageUrl = url => {
     if (typeof url !== "string") return url;
     const path = url.split("?")[0];
@@ -130,11 +131,21 @@
     // Compare case-insensitively so the first uncached request is redirected too.
     const lowerPath = path.toLowerCase();
     if (lowerPath.includes(rotationTestAssetName.toLowerCase())) {
-      if (lowerPath.includes("test2")) {
+      const layer = lowerPath.includes("test2") ? "test2"
+        : lowerPath.includes("test3") ? "test3" : "main";
+      if (!rotationTestLoggedPaths.has(path)) {
+        rotationTestLoggedPaths.add(path);
+        console.info("[BC-Shit Rotation Test] texture route", {
+          requestedPath: path,
+          detectedLayer: layer,
+          rotationEnabled: rotationTestEnabled
+        });
+      }
+      if (layer === "test2") {
         return rotationTestEnabled && rotationTestRotated.test2
           ? rotationTestRotated.test2 : rotationTestSources.test2;
       }
-      if (lowerPath.includes("test3")) {
+      if (layer === "test3") {
         return rotationTestEnabled && rotationTestRotated.test3
           ? rotationTestRotated.test3 : rotationTestSources.test3;
       }
@@ -392,7 +403,8 @@
         assetName: rotationTestAsset.Name,
         layers: rotationTestAsset.Layer?.map(layer => ({
           name: layer.Name, hasImage: layer.HasImage, priority: layer.Priority,
-          hasColor: !!layer.Color
+          hasColor: !!layer.Color, parentGroupName: layer.ParentGroupName,
+          dynamicGroupName: layer.DynamicGroupName, keys: Object.keys(layer)
         })),
         assetGroup: rotationTestAsset.Group?.Name
       });
